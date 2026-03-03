@@ -1,0 +1,33 @@
+import joblib
+import pandas as pd
+
+# 1. Load the model
+try:
+    model = joblib.load('spotify_churn_model.pkl')
+    cols = joblib.load('model_columns.pkl')
+    print("✅ Model loaded successfully!")
+except:
+    print("❌ Error: Could not find the model file. Did you run the training script first?")
+
+# 2. Function to check a user
+def check_user(listening_mins, ads, skips):
+    # Create a simple data frame for one user
+    user_data = pd.DataFrame([{
+        'listening_time': listening_mins,
+        'ads_listened_per_week': ads,
+        'skip_rate': skips,
+        'age': 25 # Defaulting other values
+    }])
+    
+    # Match the model's expected columns
+    user_data = user_data.reindex(columns=cols, fill_value=0)
+    
+    # Predict
+    prob = model.predict_proba(user_data)[0][1]
+    return prob
+
+# 3. Test it
+risk = check_user(listening_mins=10, ads=80, skips=0.9)
+print(f"Risk Score: {risk:.2%}")
+if risk > 0.5:
+    print("Action Required: This user is high risk!")

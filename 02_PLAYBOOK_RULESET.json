@@ -1,0 +1,513 @@
+{
+  "playbook_catalog": {
+    "version": "1.0",
+    "created_date": "2026-02-26",
+    "total_playbooks": 7,
+    "playbooks": [
+      {
+        "playbook_id": "PB_HIGH_RISK_CONVERT",
+        "playbook_name": "High-Risk User Conversion Blitz",
+        "target_segment": "high_risk",
+        "segment_criteria": {
+          "churn_probability_min": 0.67,
+          "subscription_type": "Free",
+          "primary_driver": "subscription_type_Free"
+        },
+        "playbook_description": "Aggressive 7-day campaign to convert premium sign-ups before churn",
+        "priority": 5,
+        "estimated_impact": {
+          "conversion_rate_lift": 0.25,
+          "retention_improvement": 0.30,
+          "revenue_impact_per_user": 9.99,
+          "total_potential_users": 750,
+          "monthly_revenue_impact": 1873.75
+        },
+        "actions": [
+          {
+            "action_id": "ACT_001_IMMEDIATE_OFFER",
+            "action_name": "Premium Trial Offer",
+            "action_description": "Send offer for 1-month free Premium trial",
+            "sequence": 1,
+            "timing": "immediate",
+            "delay_hours": 0,
+            "channel": "email",
+            "priority": "critical",
+            "template_id": "TEMPLATE_PREMIUM_TRIAL_V1",
+            "parameters": {
+              "trial_days": 30,
+              "expiry_days": 7,
+              "cta_text": "Start Your Free Month"
+            },
+            "success_metric": "Click-through rate >15%",
+            "fallback_action": "ACT_003_INCENTIVE_3MONTH"
+          },
+          {
+            "action_id": "ACT_002_AD_REDUCTION",
+            "action_name": "Reduce Ad Load",
+            "action_description": "Limit ads to 15/week for trial period",
+            "sequence": 2,
+            "timing": "on_signup",
+            "delay_hours": 1,
+            "channel": "system",
+            "priority": "high",
+            "backend_trigger": "reduce_ads_cap:15",
+            "success_metric": "User does not churn within 30 days",
+            "dependencies": ["ACT_001_IMMEDIATE_OFFER"]
+          },
+          {
+            "action_id": "ACT_003_INCENTIVE_3MONTH",
+            "action_name": "3-Month Discount Offer",
+            "action_description": "Send 50% off for 3-month Premium subscription",
+            "sequence": 3,
+            "timing": "day3_if_not_converted",
+            "delay_hours": 72,
+            "channel": "push_notification",
+            "priority": "high",
+            "template_id": "TEMPLATE_3MONTH_DISCOUNT_V1",
+            "parameters": {
+              "discount_percentage": 50,
+              "duration_months": 3,
+              "total_price_usd": 14.97
+            },
+            "success_metric": "Conversion rate >10%"
+          },
+          {
+            "action_id": "ACT_004_ENGAGEMENT_PLAYLIST",
+            "action_name": "Personalized Playlist",
+            "action_description": "Create curated playlist based on user taste",
+            "sequence": 4,
+            "timing": "day1",
+            "delay_hours": 24,
+            "channel": "in_app",
+            "priority": "medium",
+            "backend_trigger": "create_playlist:personalized",
+            "success_metric": "User skips <30% of songs in playlist"
+          },
+          {
+            "action_id": "ACT_005_PUSH_REMINDER",
+            "action_name": "Trial Expiration Reminder",
+            "action_description": "Reminder before trial expires to convert or cancel",
+            "sequence": 5,
+            "timing": "day25",
+            "delay_hours": 600,
+            "channel": "push_notification",
+            "priority": "medium",
+            "template_id": "TEMPLATE_EXPIRATION_REMINDER_V1",
+            "parameters": {
+              "days_remaining": 5,
+              "cta_text": "Continue Premium for just $9.99/month"
+            }
+          }
+        ],
+        "success_criteria": {
+          "primary_metric": "conversion_to_premium",
+          "target_value": 0.25,
+          "secondary_metrics": ["retention_after_30days", "ads_skipped_reduction"],
+          "evaluation_period_days": 30
+        },
+        "exclusion_rules": [
+          {
+            "rule": "Do NOT show offer to users who recently converted to premium",
+            "lookback_days": 30
+          },
+          {
+            "rule": "Do NOT show offer to users with recent payment failure",
+            "lookback_days": 60
+          }
+        ],
+        "budget": {
+          "cost_per_user_usd": 0.50,
+          "total_budget_usd": 375,
+          "budget_per_action": {
+            "ACT_001_IMMEDIATE_OFFER": 0.10,
+            "ACT_003_INCENTIVE_3MONTH": 0.20,
+            "ACT_004_ENGAGEMENT_PLAYLIST": 0.10,
+            "ACT_005_PUSH_REMINDER": 0.10
+          }
+        }
+      },
+      {
+        "playbook_id": "PB_AD_FRICTION_REDUCTION",
+        "playbook_name": "Ad Friction Reduction Program",
+        "target_segment": "high_risk",
+        "segment_criteria": {
+          "churn_probability_min": 0.60,
+          "ads_listened_per_week_min": 40,
+          "subscription_type": "Free"
+        },
+        "playbook_description": "Systematically reduce ad burden to improve retention",
+        "priority": 5,
+        "main_driver": "ads_listened_per_week",
+        "estimated_impact": {
+          "churn_reduction": 0.15,
+          "revenue_impact_per_user": -0.00,
+          "note": "No immediate revenue from ad-free, but prevents churn"
+        },
+        "actions": [
+          {
+            "action_id": "ACT_101_AD_CAP_TIER1",
+            "action_name": "Step 1: Reduce to 30 ads/week",
+            "action_description": "Reduce ad load from current to 30/week",
+            "sequence": 1,
+            "timing": "immediate",
+            "channel": "system",
+            "priority": "critical",
+            "backend_trigger": "reduce_ads_cap:30",
+            "success_metric": "No increase in churn within 7 days"
+          },
+          {
+            "action_id": "ACT_102_PREMIUM_TRIAL_LITE",
+            "action_name": "Limited Premium Trial",
+            "action_description": "Offer 1-week ad-free trial to show value",
+            "sequence": 2,
+            "timing": "day1",
+            "delay_hours": 24,
+            "channel": "in_app_banner",
+            "priority": "high",
+            "template_id": "TEMPLATE_ADFREE_TRIAL_WEEK_V1",
+            "parameters": {
+              "trial_days": 7,
+              "expiry_days": 3
+            }
+          },
+          {
+            "action_id": "ACT_103_ENGAGEMENT_TRACK",
+            "action_name": "Track Engagement Post-Reduction",
+            "action_description": "Monitor if ad reduction leads to increased listening",
+            "sequence": 3,
+            "timing": "continuous",
+            "channel": "analytics",
+            "priority": "medium",
+            "success_metric": "Listening time increase >10%"
+          }
+        ]
+      },
+      {
+        "playbook_id": "PB_MEDIUM_RISK_ENGAGE",
+        "playbook_name": "Medium-Risk User Engagement Loop",
+        "target_segment": "medium_risk",
+        "segment_criteria": {
+          "churn_probability_min": 0.33,
+          "churn_probability_max": 0.67
+        },
+        "playbook_description": "Build engagement & community to increase stickiness",
+        "priority": 4,
+        "estimated_impact": {
+          "churn_reduction": 0.10,
+          "engagement_increase": 0.20,
+          "revenue_impact_per_user": 2.50
+        },
+        "actions": [
+          {
+            "action_id": "ACT_201_WEEKLY_PLAYLIST",
+            "action_name": "Weekly Personalized Playlist",
+            "action_description": "Curated 'Top Hits' playlist delivered every Monday",
+            "sequence": 1,
+            "timing": "recurring_weekly",
+            "day_of_week": "monday",
+            "time_of_day": "09:00",
+            "channel": "in_app_notification",
+            "priority": "high",
+            "backend_trigger": "create_playlist:weekly_curated",
+            "success_metric": "User listens to >50% of playlist"
+          },
+          {
+            "action_id": "ACT_202_SOCIAL_SHARING",
+            "action_name": "Enable Collaborative Playlists",
+            "action_description": "Allow user to create shared playlists with friends",
+            "sequence": 2,
+            "timing": "day1",
+            "channel": "in_app_feature",
+            "priority": "medium",
+            "backend_trigger": "enable_feature:collaborative_playlists"
+          },
+          {
+            "action_id": "ACT_203_MILESTONE_BADGES",
+            "action_name": "Milestone Rewards",
+            "action_description": "Celebrate user milestones (e.g., 1000 songs listened)",
+            "sequence": 3,
+            "timing": "event_triggered",
+            "channel": "in_app_notification",
+            "priority": "medium",
+            "backend_trigger": "send_milestone_badge"
+          },
+          {
+            "action_id": "ACT_204_PREMIUM_DISCOUNT",
+            "action_name": "Tiered Premium Discount",
+            "action_description": "Offer 30% off Premium for 2 months (commitment)",
+            "sequence": 4,
+            "timing": "day7_if_high_engagement",
+            "channel": "email",
+            "priority": "high",
+            "template_id": "TEMPLATE_2MONTH_DISCOUNT_V1",
+            "parameters": {
+              "discount_percentage": 30,
+              "duration_months": 2,
+              "total_price_usd": 13.98
+            }
+          }
+        ]
+      },
+      {
+        "playbook_id": "PB_LOW_RISK_LOYALTY",
+        "playbook_name": "Low-Risk User Loyalty & Upsell",
+        "target_segment": "low_risk",
+        "segment_criteria": {
+          "churn_probability_max": 0.33,
+          "subscription_type": "Premium"
+        },
+        "playbook_description": "VIP treatment to maximize lifetime value",
+        "priority": 3,
+        "estimated_impact": {
+          "churn_reduction": 0.02,
+          "upsell_rate": 0.15,
+          "revenue_impact_per_user": 5.00
+        },
+        "actions": [
+          {
+            "action_id": "ACT_301_VIP_PERKS",
+            "action_name": "VIP Early Access",
+            "action_description": "Early access to new features (spatial audio, exclusive content)",
+            "sequence": 1,
+            "timing": "quarterly",
+            "channel": "email",
+            "priority": "medium",
+            "template_id": "TEMPLATE_VIP_EARLY_ACCESS_V1"
+          },
+          {
+            "action_id": "ACT_302_FAMILY_PLAN_UPSELL",
+            "action_name": "Family Plan Upgrade",
+            "action_description": "Offer Family Plan upgrade (6 users, same price)",
+            "sequence": 2,
+            "timing": "day30_of_premium",
+            "channel": "in_app_banner",
+            "priority": "high",
+            "template_id": "TEMPLATE_FAMILY_PLAN_UPSELL_V1",
+            "parameters": {
+              "max_users": 6,
+              "price_per_user": 1.66,
+              "cta_text": "Invite your family"
+            }
+          },
+          {
+            "action_id": "ACT_303_EXCLUSIVE_PODCASTS",
+            "action_name": "Exclusive Podcast Access",
+            "action_description": "Access to exclusive artist interviews & behind-the-scenes",
+            "sequence": 3,
+            "timing": "monthly",
+            "channel": "in_app_notification",
+            "priority": "medium"
+          },
+          {
+            "action_id": "ACT_304_REFERRAL_PROGRAM",
+            "action_name": "Referral Bonus Program",
+            "action_description": "Earn 1 month free for each friend who upgrades",
+            "sequence": 4,
+            "timing": "ongoing",
+            "channel": "in_app_menu",
+            "priority": "medium",
+            "template_id": "TEMPLATE_REFERRAL_PROGRAM_V1",
+            "parameters": {
+              "bonus_months": 1,
+              "max_referrals_per_month": 5
+            }
+          }
+        ]
+      },
+      {
+        "playbook_id": "PB_HIGH_SKIP_RATE",
+        "playbook_name": "High Skip Rate Recovery",
+        "target_segment": "high_risk",
+        "segment_criteria": {
+          "skip_rate_min": 0.65,
+          "churn_probability_min": 0.60
+        },
+        "playbook_description": "Improve content recommendation to reduce skips",
+        "priority": 4,
+        "main_driver": "skip_rate",
+        "estimated_impact": {
+          "skip_rate_reduction": 0.15,
+          "engagement_increase": 0.25,
+          "churn_reduction": 0.15
+        },
+        "actions": [
+          {
+            "action_id": "ACT_401_PREFERENCE_SURVEY",
+            "action_name": "Music Preference Survey",
+            "action_description": "Quick 2-minute poll to understand user taste",
+            "sequence": 1,
+            "timing": "immediate",
+            "channel": "in_app_popup",
+            "priority": "high",
+            "template_id": "TEMPLATE_MUSIC_PREF_SURVEY_V1",
+            "parameters": {
+              "questions": 5,
+              "reward": "Custom playlist"
+            }
+          },
+          {
+            "action_id": "ACT_402_ALGORITHM_RESET",
+            "action_name": "Reset Recommendation Algorithm",
+            "action_description": "Clear historical data, rebuild recommendations fresh",
+            "sequence": 2,
+            "timing": "after_survey",
+            "channel": "system",
+            "priority": "high",
+            "backend_trigger": "reset_recommendation_algo"
+          },
+          {
+            "action_id": "ACT_403_CURATED_PLAYLIST",
+            "action_name": "Genre-Specific Curator Playlist",
+            "action_description": "Hand-curated playlists by Spotify experts for user's top genre",
+            "sequence": 3,
+            "timing": "day1",
+            "channel": "in_app",
+            "priority": "medium",
+            "backend_trigger": "create_expert_playlist"
+          },
+          {
+            "action_id": "ACT_404_FEEDBACK_LOOP",
+            "action_name": "Weekly Feedback & Adjustment",
+            "action_description": "Weekly email asking 'How are recommendations?' to fine-tune",
+            "sequence": 4,
+            "timing": "recurring_weekly",
+            "channel": "email",
+            "priority": "medium",
+            "template_id": "TEMPLATE_WEEKLY_FEEDBACK_V1"
+          }
+        ]
+      },
+      {
+        "playbook_id": "PB_LOW_ENGAGEMENT",
+        "playbook_name": "Low Engagement Recovery",
+        "target_segment": "high_risk",
+        "segment_criteria": {
+          "listening_time_max": 40,
+          "subscription_type": "Free",
+          "churn_probability_min": 0.65
+        },
+        "playbook_description": "Re-activate dormant or low-engagement users",
+        "priority": 4,
+        "main_driver": "listening_time",
+        "estimated_impact": {
+          "reactivation_rate": 0.20,
+          "listening_time_increase": 0.40,
+          "churn_reduction": 0.20
+        },
+        "actions": [
+          {
+            "action_id": "ACT_501_WINBACK_EMAIL",
+            "action_name": "Winback Campaign Email",
+            "action_description": "Personalized email highlighting missed new releases",
+            "sequence": 1,
+            "timing": "immediate",
+            "channel": "email",
+            "priority": "critical",
+            "template_id": "TEMPLATE_WINBACK_EMAIL_V1",
+            "parameters": {
+              "new_releases_count": 10,
+              "tone": "personal"
+            }
+          },
+          {
+            "action_id": "ACT_502_DISCOVERY_PLAYLIST",
+            "action_name": "New Music Discovery Playlist",
+            "action_description": "25-song playlist of trending & personalized new songs",
+            "sequence": 2,
+            "timing": "day1",
+            "channel": "in_app",
+            "priority": "high",
+            "backend_trigger": "create_discovery_playlist"
+          },
+          {
+            "action_id": "ACT_503_CHALLENGE",
+            "action_name": "Listen Challenge",
+            "action_description": "Fun 7-day challenge: listen to 1 new artist each day, earn badges",
+            "sequence": 3,
+            "timing": "day2",
+            "channel": "in_app_gamification",
+            "priority": "high",
+            "template_id": "TEMPLATE_LISTEN_CHALLENGE_V1",
+            "parameters": {
+              "duration_days": 7,
+              "daily_target_new_artists": 1,
+              "reward": "Special badge + profile showcase"
+            }
+          },
+          {
+            "action_id": "ACT_504_ARTIST_FOLLOW",
+            "action_name": "Artist Notification Program",
+            "action_description": "Notify user when their followed artists release new music",
+            "sequence": 4,
+            "timing": "day3",
+            "channel": "push_notification",
+            "priority": "medium",
+            "backend_trigger": "enable_artist_notifications"
+          }
+        ]
+      },
+      {
+        "playbook_id": "PB_CHURN_RESCUE_LAST_EFFORT",
+        "playbook_name": "Last-Effort Churn Rescue",
+        "target_segment": "high_risk",
+        "segment_criteria": {
+          "churn_probability_min": 0.80,
+          "never_converted": true
+        },
+        "playbook_description": "Nuclear option: Max discount + VIP treatment before lost",
+        "priority": 5,
+        "estimated_impact": {
+          "save_rate": 0.15,
+          "average_revenue_per_save": 9.99,
+          "cost_per_user": 2.00
+        },
+        "actions": [
+          {
+            "action_id": "ACT_601_URGENT_DISCOUNT",
+            "action_name": "Urgent: 70% Off Premium 6 Months",
+            "action_description": "Last-ditch offer: 70% discount for 6 months (expires in 24 hours)",
+            "sequence": 1,
+            "timing": "immediate",
+            "channel": "email",
+            "priority": "critical",
+            "urgency": "high",
+            "template_id": "TEMPLATE_LAST_EFFORT_DISCOUNT_V1",
+            "parameters": {
+              "discount_percentage": 70,
+              "duration_months": 6,
+              "total_price_usd": 17.97,
+              "offer_expiry_hours": 24
+            }
+          },
+          {
+            "action_id": "ACT_602_CEO_MESSAGE",
+            "action_name": "Personal Message from Product Manager",
+            "action_description": "Hand-written style email asking what we can do to keep them",
+            "sequence": 2,
+            "timing": "hour12_if_not_converted",
+            "channel": "email",
+            "priority": "critical",
+            "template_id": "TEMPLATE_PERSONAL_MESSAGE_V1",
+            "parameters": {
+              "sender_name": "Head of User Experience",
+              "tone": "empathetic"
+            }
+          },
+          {
+            "action_id": "ACT_603_PHONE_CALL",
+            "action_name": "Optional: Customer Success Call",
+            "action_description": "For top-value users, offer schedule call with CS team",
+            "sequence": 3,
+            "timing": "day0_evening",
+            "channel": "sms",
+            "priority": "high",
+            "template_id": "TEMPLATE_CS_CALL_OFFER_V1",
+            "parameters": {
+              "target_user_value_min": 50.00
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+# Streamlit Configuration
+# File location: ~/.streamlit/config.toml (or .streamlit/config.toml in project root)
+
+[theme]
+primaryColor = "#1DB954"  # Spotify green
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"
+
+[client]
+showErrorDetails = true
+toolbarMode = "minimal"
+
+[logger]
+level = "info"
+
+[server]
+port = 8501
+headless = true
+runOnSave = true
+maxUploadSize = 200
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[logger]
+level = "info"  # debug, info, warning, error
