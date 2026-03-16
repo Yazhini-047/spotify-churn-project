@@ -735,6 +735,40 @@ def get_risk_badge(r):
     return f'<span class="badge badge-{cls}">{label}</span>'
 
 # ============================================================================
+# SAMPLE CUSTOMER DATABASE — shared by both Tab 1 and Tab 2
+# ============================================================================
+SAMPLE_CUSTOMERS = {
+    "user_001": {"age":22,"listening_time":1.5,"songs_played_per_day":8,
+                 "skip_rate":0.65,"ads_listened_per_week":25,"offline_listening":0.0,
+                 "gender":"Male","subscription_type":"Free","device_type":"Mobile",
+                 "genres":["Hip-Hop","Trap","RnB"],"genre_hours":[10,7,4]},
+    "user_002": {"age":28,"listening_time":3.2,"songs_played_per_day":22,
+                 "skip_rate":0.2,"ads_listened_per_week":5,"offline_listening":2.0,
+                 "gender":"Female","subscription_type":"Premium","device_type":"Mobile",
+                 "genres":["Pop","Indie","Electronic"],"genre_hours":[14,9,6]},
+    "user_003": {"age":19,"listening_time":5.0,"songs_played_per_day":35,
+                 "skip_rate":0.45,"ads_listened_per_week":18,"offline_listening":1.5,
+                 "gender":"Female","subscription_type":"Student","device_type":"Web",
+                 "genres":["Pop","K-Pop","Jazz"],"genre_hours":[16,11,5]},
+    "user_004": {"age":35,"listening_time":0.8,"songs_played_per_day":5,
+                 "skip_rate":0.75,"ads_listened_per_week":30,"offline_listening":0.0,
+                 "gender":"Male","subscription_type":"Free","device_type":"Desktop",
+                 "genres":["Rock","Metal","Classical"],"genre_hours":[6,4,2]},
+    "user_005": {"age":24,"listening_time":4.5,"songs_played_per_day":30,
+                 "skip_rate":0.1,"ads_listened_per_week":2,"offline_listening":3.0,
+                 "gender":"Other","subscription_type":"Premium","device_type":"Mobile",
+                 "genres":["Electronic","House","Techno"],"genre_hours":[18,12,8]},
+    "user_006": {"age":31,"listening_time":2.0,"songs_played_per_day":14,
+                 "skip_rate":0.55,"ads_listened_per_week":20,"offline_listening":0.5,
+                 "gender":"Female","subscription_type":"Free","device_type":"Web",
+                 "genres":["RnB","Soul","Jazz"],"genre_hours":[9,6,4]},
+    "user_007": {"age":17,"listening_time":6.0,"songs_played_per_day":45,
+                 "skip_rate":0.3,"ads_listened_per_week":10,"offline_listening":4.0,
+                 "gender":"Male","subscription_type":"Student","device_type":"Mobile",
+                 "genres":["Pop","Hip-Hop","Drill"],"genre_hours":[20,15,8]},
+}
+
+# ============================================================================
 # PAGE: HOME
 # ============================================================================
 def page_home(model, scaler, explainer):
@@ -762,85 +796,118 @@ def page_home(model, scaler, explainer):
     # ── TAB 1: PREDICT ────────────────────────────────────────────────────
     with tab1:
         if model is None:
-            st.error("⚠️ No model file found. Add `spotify_churn_model.pkl` to your project folder and redeploy.")
+            st.markdown('<div style="background:#ff333318;border:1px solid #ff3333;border-radius:12px;padding:1rem 1.5rem;color:#ff5555;">⚠️ No model file found. Add spotify_churn_model.pkl to your project folder and redeploy.</div>', unsafe_allow_html=True)
             return
+
+        # ── Customer selector ──
+        st.markdown('<div class="section-title">Select Customer</div>', unsafe_allow_html=True)
+        col_sel, col_btn = st.columns([3, 1])
+        with col_sel:
+            selected_uid = st.selectbox(
+                "Customer ID",
+                list(SAMPLE_CUSTOMERS.keys()),
+                key="tab1_uid",
+                label_visibility="collapsed"
+            )
+        with col_btn:
+            predict_clicked = st.button("🔮 Predict", use_container_width=True, key="tab1_predict")
+
+        # Auto-predict when selection changes OR button clicked
+        if predict_clicked or st.session_state.get("tab1_last_uid") != selected_uid:
+            st.session_state.tab1_last_uid = selected_uid
+            customer = SAMPLE_CUSTOMERS[selected_uid]
+            inputs = {
+                "age":                   customer["age"],
+                "listening_time":        customer["listening_time"],
+                "songs_played_per_day":  customer["songs_played_per_day"],
+                "skip_rate":             customer["skip_rate"],
+                "ads_listened_per_week": customer["ads_listened_per_week"],
+                "offline_listening":     customer["offline_listening"],
+                "gender":                customer["gender"],
+                "subscription_type":     customer["subscription_type"],
+                "device_type":           customer["device_type"],
+            }
+            with st.spinner(f"Analysing {selected_uid}..."):
+                prediction = make_prediction(model, scaler, selected_uid, inputs)
+            if prediction:
+                st.session_state.last_prediction = prediction
+
+        st.markdown("---")
+        customer = SAMPLE_CUSTOMERS[selected_uid]
 
         col_form, col_result = st.columns([1, 1], gap="large")
 
         with col_form:
-            st.markdown('<div class="section-title">User Features</div>', unsafe_allow_html=True)
-
-            user_id = st.text_input("User ID", value="user_001")
-
-            col_a, col_b = st.columns(2)
-            with col_a:
-                gender            = st.selectbox("Gender", ["Male", "Female", "Other"])
-                subscription_type = st.selectbox("Subscription", ["Free", "Premium", "Student"])
-                device_type       = st.selectbox("Device", ["Mobile", "Desktop", "Web"])
-            with col_b:
-                age                  = st.slider("Age", 13, 80, 25)
-                listening_time       = st.slider("Listening Time (hrs/day)", 0.0, 24.0, 2.5, step=0.5)
-                songs_played_per_day = st.slider("Songs Per Day", 0, 200, 20)
-
-            col_c, col_d = st.columns(2)
-            with col_c:
-                skip_rate             = st.slider("Skip Rate", 0.0, 1.0, 0.3, step=0.05)
-                ads_listened_per_week = st.slider("Ads Per Week", 0, 50, 10)
-            with col_d:
-                offline_listening = st.slider("Offline Hours", 0.0, 10.0, 1.0, step=0.5)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            predict_clicked = st.button("🔮  Run Churn Prediction", use_container_width=True)
-
-            # Build a fingerprint of current inputs to detect changes
-            current_inputs = {
-                "user_id": user_id, "age": age,
-                "listening_time": listening_time,
-                "songs_played_per_day": songs_played_per_day,
-                "skip_rate": skip_rate,
-                "ads_listened_per_week": ads_listened_per_week,
-                "offline_listening": offline_listening,
-                "gender": gender,
-                "subscription_type": subscription_type,
-                "device_type": device_type,
-            }
-            # Clear old prediction when inputs change
-            if st.session_state.get("last_inputs") != current_inputs:
-                st.session_state.last_prediction = {}
-                st.session_state.last_inputs = current_inputs
+            st.markdown('<div class="section-title">📋 Customer Data (Read-Only)</div>', unsafe_allow_html=True)
+            # Display all customer fields as styled read-only cards
+            fields = [
+                ("👤 Gender",              customer["gender"]),
+                ("🎂 Age",                 customer["age"]),
+                ("🎵 Subscription",        customer["subscription_type"]),
+                ("📱 Device",              customer["device_type"]),
+                ("⏱️ Listen Time/day",     f"{customer['listening_time']} hrs"),
+                ("🎶 Songs/day",           customer["songs_played_per_day"]),
+                ("⏭️ Skip Rate",           f"{customer['skip_rate']*100:.0f}%"),
+                ("📢 Ads/week",            customer["ads_listened_per_week"]),
+                ("📶 Offline Hours",       f"{customer['offline_listening']} hrs"),
+            ]
+            # Display in a 3-column grid of cards
+            rows = [fields[i:i+3] for i in range(0, len(fields), 3)]
+            for row in rows:
+                cols = st.columns(3)
+                for col, (label, value) in zip(cols, row):
+                    with col:
+                        st.markdown(f"""
+                        <div style="background:#141414;border:1px solid #252525;
+                                    border-radius:10px;padding:0.8rem 1rem;margin-bottom:0.5rem;">
+                            <div style="color:#888;font-size:0.72rem;font-weight:600;
+                                        text-transform:uppercase;letter-spacing:1px;">
+                                {label}
+                            </div>
+                            <div style="color:#ffffff;font-size:1.1rem;font-weight:700;
+                                        margin-top:0.3rem;">
+                                {value}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
         with col_result:
-            st.markdown('<div class="section-title">Prediction Result</div>', unsafe_allow_html=True)
-
-            if predict_clicked:
-                inputs = {
-                    "age": age,
-                    "listening_time": listening_time,
-                    "songs_played_per_day": songs_played_per_day,
-                    "skip_rate": skip_rate,
-                    "ads_listened_per_week": ads_listened_per_week,
-                    "offline_listening": offline_listening,
-                    "gender": gender,
-                    "subscription_type": subscription_type,
-                    "device_type": device_type,
-                }
-                with st.spinner("Analysing user profile..."):
-                    prediction = make_prediction(model, scaler, user_id, inputs)
-
-                if prediction:
-                    st.session_state.last_prediction = prediction
-                    st.session_state.last_inputs = current_inputs
+            st.markdown('<div class="section-title">🎯 Prediction Result</div>', unsafe_allow_html=True)
 
             if st.session_state.get("last_prediction"):
                 pred  = st.session_state.last_prediction
                 prob  = pred["churn_probability"]
                 risk  = pred["risk_segment"]
                 label = pred["prediction_label"]
+                risk_color = "#ff4444" if risk=="high_risk" else "#ff9500" if risk=="medium_risk" else "#1DB954"
+                verdict    = "⚠️ Will Churn"  if label==1 else "✅ Will Retain"
 
-                c1, c2, c3 = st.columns(3)
-                with c1: st.metric("Churn Risk",   f"{prob*100:.1f}%")
-                with c2: st.metric("Confidence",   f"{pred['confidence_score']*100:.0f}%")
-                with c3: st.metric("Verdict",       "CHURN" if label==1 else "RETAIN")
+                # 3 metric cards with full text visible
+                st.markdown(f"""
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1rem;">
+                    <div style="background:#141414;border:1px solid #252525;border-radius:12px;
+                                padding:1rem;text-align:center;">
+                        <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
+                                    letter-spacing:1px;font-weight:600;">Churn Risk</div>
+                        <div style="color:{risk_color};font-size:1.8rem;font-weight:700;
+                                    margin-top:0.3rem;">{prob*100:.1f}%</div>
+                    </div>
+                    <div style="background:#141414;border:1px solid #252525;border-radius:12px;
+                                padding:1rem;text-align:center;">
+                        <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
+                                    letter-spacing:1px;font-weight:600;">Confidence</div>
+                        <div style="color:#ffffff;font-size:1.8rem;font-weight:700;
+                                    margin-top:0.3rem;">{pred['confidence_score']*100:.0f}%</div>
+                    </div>
+                    <div style="background:#141414;border:1px solid {risk_color}55;border-radius:12px;
+                                padding:1rem;text-align:center;">
+                        <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
+                                    letter-spacing:1px;font-weight:600;">Verdict</div>
+                        <div style="color:{risk_color};font-size:1rem;font-weight:700;
+                                    margin-top:0.3rem;">{verdict}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
                 st.markdown(
                     f"**Risk Level:** {get_risk_badge(risk)}&nbsp;&nbsp;"
@@ -851,10 +918,9 @@ def page_home(model, scaler, explainer):
             else:
                 st.markdown("""
                 <div style="background:#141414;border:1px dashed #333;border-radius:16px;
-                             padding:3rem;text-align:center;color:#555;">
+                             padding:3rem;text-align:center;">
                     <div style="font-size:3rem;margin-bottom:1rem;">🎯</div>
-                    <div style="font-size:1.1rem;font-weight:600;color:#888;">Fill in the form and click</div>
-                    <div style="font-size:0.9rem;margin-top:0.3rem;color:#555;">Run Churn Prediction</div>
+                    <div style="font-size:1rem;color:#888;">Select a customer above to see prediction</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -904,33 +970,9 @@ def page_home(model, scaler, explainer):
     with tab2:
         st.markdown('<div class="section-title">Customer Profile Explorer</div>', unsafe_allow_html=True)
 
-        # Sample customer database — realistic profiles
-        SAMPLE_CUSTOMERS = {
-            "user_001": {"age":22,"listening_time":1.5,"songs_played_per_day":8,
-                         "skip_rate":0.65,"ads_listened_per_week":25,"offline_listening":0.0,
-                         "gender":"Male","subscription_type":"Free","device_type":"Mobile",
-                         "genres":["Hip-Hop","Trap","RnB"],"genre_hours":[10,7,4]},
-            "user_002": {"age":28,"listening_time":3.2,"songs_played_per_day":22,
-                         "skip_rate":0.2,"ads_listened_per_week":5,"offline_listening":2.0,
-                         "gender":"Female","subscription_type":"Premium","device_type":"Mobile",
-                         "genres":["Pop","Indie","Electronic"],"genre_hours":[14,9,6]},
-            "user_003": {"age":19,"listening_time":5.0,"songs_played_per_day":35,
-                         "skip_rate":0.45,"ads_listened_per_week":18,"offline_listening":1.5,
-                         "gender":"Female","subscription_type":"Student","device_type":"Web",
-                         "genres":["Pop","K-Pop","Jazz"],"genre_hours":[16,11,5]},
-            "user_004": {"age":35,"listening_time":0.8,"songs_played_per_day":5,
-                         "skip_rate":0.75,"ads_listened_per_week":30,"offline_listening":0.0,
-                         "gender":"Male","subscription_type":"Free","device_type":"Desktop",
-                         "genres":["Rock","Metal","Classical"],"genre_hours":[6,4,2]},
-            "user_005": {"age":24,"listening_time":4.5,"songs_played_per_day":30,
-                         "skip_rate":0.1,"ads_listened_per_week":2,"offline_listening":3.0,
-                         "gender":"Other","subscription_type":"Premium","device_type":"Mobile",
-                         "genres":["Electronic","House","Techno"],"genre_hours":[18,12,8]},
-        }
-
         col1, col2 = st.columns([3, 1])
         with col1:
-            selected_uid = st.selectbox(
+            profile_uid = st.selectbox(
                 "Select Customer ID",
                 list(SAMPLE_CUSTOMERS.keys()),
                 key="profile_uid"
@@ -941,7 +983,7 @@ def page_home(model, scaler, explainer):
 
         if load_clicked or st.session_state.get("show_profile", False):
             st.session_state.show_profile = True
-            customer = SAMPLE_CUSTOMERS[selected_uid]
+            customer = SAMPLE_CUSTOMERS[profile_uid]
 
             # ── Auto-run prediction for this customer ──
             profile_inputs = {
@@ -1246,6 +1288,7 @@ def main():
     if "page"            not in st.session_state: st.session_state.page = "home"
     if "last_prediction" not in st.session_state: st.session_state.last_prediction = {}
     if "last_inputs"     not in st.session_state: st.session_state.last_inputs = {}
+    if "tab1_last_uid"   not in st.session_state: st.session_state.tab1_last_uid = ""
     if "show_profile"    not in st.session_state: st.session_state.show_profile = False
     if "chat_session_id" not in st.session_state: st.session_state.chat_session_id = f"s_{int(time.time())}"
     if "chat_messages"   not in st.session_state: st.session_state.chat_messages = []
