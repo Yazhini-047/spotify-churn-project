@@ -57,7 +57,7 @@ st.markdown("""
 # ============================================================================
 @st.cache_resource
 def load_model():
-    for path in ["model.joblib", "churn_model.pkl", "model.pkl"]:
+    for path in ["spotify_churn_model.pkl", "final_churn_model.pkl", "perfect_model.pkl"]:
         if os.path.exists(path):
             try:
                 return joblib.load(path)
