@@ -16,17 +16,26 @@ import uuid
 import os
 import joblib
 import warnings
+import logging
+
+# Suppress ALL warnings and logs before anything else
 warnings.filterwarnings("ignore")
+logging.getLogger().setLevel(logging.CRITICAL)
+logging.disable(logging.CRITICAL)
+os.environ["PYTHONWARNINGS"] = "ignore"
 
 # ============================================================================
 # PAGE CONFIGURATION
 # ============================================================================
 st.set_page_config(
-    page_title="Spotify Churn Intelligence",
+    page_title="Spotify Churn Guard",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Hide ALL error details and tracebacks from the UI
+st.set_option("client.showErrorDetails", False)
 
 # ============================================================================
 # SPOTIFY DARK THEME CSS
@@ -46,10 +55,30 @@ html, body, [class*="css"], .stApp {
     background-color: #0a0a0a !important;
 }
 
-/* Hide ALL debug/traceback/exception output */
-.stException { display: none !important; }
-div[data-testid="stNotificationContentError"] pre { display: none !important; }
-.element-container iframe { display: none !important; }
+/* ── NUCLEAR: Kill ALL debug/traceback/code blocks everywhere ── */
+.stException                                    { display:none!important; }
+.stException *                                  { display:none!important; }
+[data-testid="stNotificationContentError"] pre  { display:none!important; }
+[data-testid="stNotificationContentWarning"] pre{ display:none!important; }
+[data-testid="stSidebar"] pre                   { display:none!important; }
+[data-testid="stSidebar"] code                  { display:none!important; }
+[data-testid="stSidebar"] .stException          { display:none!important; }
+[data-testid="stSidebar"] .element-container:has(pre) { display:none!important; }
+[data-testid="stSidebar"] .element-container:has(code){ display:none!important; }
+.main pre                                        { display:none!important; }
+.main code                                       { display:none!important; }
+div:has(> pre)                                   { display:none!important; }
+div:has(> code)                                  { display:none!important; }
+.element-container:has(pre)                      { display:none!important; }
+.element-container:has(code)                     { display:none!important; }
+[data-testid="stAlert"] pre                      { display:none!important; }
+[data-testid="stAlert"] code                     { display:none!important; }
+/* Hide the specific white box with monospaced debug text */
+[data-testid="stSidebar"] div[style*="background"] { 
+    background: transparent!important; 
+    border: none!important; 
+}
+.sidebar-content pre, .sidebar-content code      { display:none!important; }
 
 /* Sidebar */
 [data-testid="stSidebar"] {
@@ -711,23 +740,18 @@ def get_risk_badge(r):
 def page_home(model, scaler, explainer):
 
     # ── Hero ──────────────────────────────────────────────────────────────
+    model_badge = "✅ Model Active" if model else "❌ Model Missing"
     st.markdown(f"""
     <div class="hero-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
-                <div class="hero-title">🎵 Spotify Churn Intelligence</div>
+                <div class="hero-title">🎵 Spotify Churn Guard</div>
                 <div class="hero-subtitle">
-                    AI-powered churn prediction · SHAP explainability · Actionable playbooks
-                </div>
-                <div class="hero-tags">
-                    <span class="hero-tag">✅ Standalone</span>
-                    <span class="hero-tag">🔮 Real ML Model</span>
-                    <span class="hero-tag">📖 SHAP XAI</span>
-                    <span class="hero-tag">🎬 Playbooks</span>
+                    Spotify Customer Churn Prediction with XAI and Actionable Playbooks
                 </div>
             </div>
             <div style="text-align:right;color:rgba(255,255,255,0.85);font-size:0.85rem;margin-top:0.3rem;">
-                {'✅ Model Active' if model else '❌ Model Missing'}
+                {model_badge}
             </div>
         </div>
     </div>
@@ -966,7 +990,7 @@ def page_help():
     st.markdown("""
     <div class="hero-header">
         <div class="hero-title">📚 Help & Documentation</div>
-        <div class="hero-subtitle">Everything you need to know about Spotify Churn Intelligence</div>
+        <div class="hero-subtitle">Everything you need to know about Spotify Churn Guard</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1069,20 +1093,44 @@ def main():
 
         st.markdown("---")
         st.markdown("### ⚙️ System Status")
-        st.success("✅ Model: Loaded")      if model    else st.error("❌ Model: Not Found")
-        st.success("✅ Scaler: Ready")      if scaler   else st.warning("⚠️ Scaler: Missing")
-        st.success("✅ SHAP: Ready")        if explainer else st.warning("⚠️ SHAP: Unavailable")
+
+        # Use markdown instead of st.success/error/warning to avoid debug output
+        model_status  = "✅ Model: Loaded"   if model    else "❌ Model: Not Found"
+        scaler_status = "✅ Scaler: Ready"   if scaler   else "⚠️ Scaler: Missing"
+        shap_status   = "✅ SHAP: Ready"     if explainer else "⚠️ SHAP: Unavailable"
+
+        model_color  = "#1DB954" if model    else "#ff4444"
+        scaler_color = "#1DB954" if scaler   else "#ff9500"
+        shap_color   = "#1DB954" if explainer else "#ff9500"
+
+        st.markdown(f"""
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+    <div style="background:#141414;border:1px solid {model_color}33;border-radius:8px;
+                padding:8px 12px;color:{model_color};font-size:0.88rem;font-weight:600;">
+        {model_status}
+    </div>
+    <div style="background:#141414;border:1px solid {scaler_color}33;border-radius:8px;
+                padding:8px 12px;color:{scaler_color};font-size:0.88rem;font-weight:600;">
+        {scaler_status}
+    </div>
+    <div style="background:#141414;border:1px solid {shap_color}33;border-radius:8px;
+                padding:8px 12px;color:{shap_color};font-size:0.88rem;font-weight:600;">
+        {shap_status}
+    </div>
+</div>
+        """, unsafe_allow_html=True)
 
         st.markdown("---")
         st.markdown("""
-**Spotify Churn Intelligence**
-v2.0 — Standalone · No backend
-
-- 🔮 15-feature ML model
-- 📖 SHAP explainability
-- 🎬 Playbook engine
-- 💬 Chat assistant
-        """)
+<div style="color:#888;font-size:0.85rem;line-height:1.8;">
+<strong style="color:#e0e0e0;">Spotify Churn Guard</strong><br>
+v2.0 — Standalone · No backend<br><br>
+🔮 15-feature ML model<br>
+📖 SHAP explainability<br>
+🎬 Playbook engine<br>
+💬 Chat assistant
+</div>
+        """, unsafe_allow_html=True)
 
     if st.session_state.page == "home":
         page_home(model, scaler, explainer)
