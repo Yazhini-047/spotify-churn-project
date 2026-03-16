@@ -389,6 +389,24 @@ def load_explainer(_model):
         except Exception:
             return None
 
+@st.cache_data
+def load_dataset():
+    """
+    Load all 8000 real users from the CSV dataset.
+    Cached so it only reads once — fast for all users.
+    """
+    csv_paths = ["spotify dataset.csv", "spotify_dataset.csv", "data.csv"]
+    for path in csv_paths:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path)
+                # Ensure user_id is string for display
+                df["user_id"] = df["user_id"].astype(str)
+                return df
+            except Exception:
+                pass
+    return None
+
 # ============================================================================
 # EXACT 15 FEATURE COLUMNS FROM model_columns.pkl
 # ============================================================================
@@ -735,43 +753,29 @@ def get_risk_badge(r):
     return f'<span class="badge badge-{cls}">{label}</span>'
 
 # ============================================================================
-# SAMPLE CUSTOMER DATABASE — shared by both Tab 1 and Tab 2
+# HELPER: get customer dict from real dataset row
 # ============================================================================
-SAMPLE_CUSTOMERS = {
-    "user_001": {"age":22,"listening_time":1.5,"songs_played_per_day":8,
-                 "skip_rate":0.65,"ads_listened_per_week":25,"offline_listening":0.0,
-                 "gender":"Male","subscription_type":"Free","device_type":"Mobile",
-                 "genres":["Hip-Hop","Trap","RnB"],"genre_hours":[10,7,4]},
-    "user_002": {"age":28,"listening_time":3.2,"songs_played_per_day":22,
-                 "skip_rate":0.2,"ads_listened_per_week":5,"offline_listening":2.0,
-                 "gender":"Female","subscription_type":"Premium","device_type":"Mobile",
-                 "genres":["Pop","Indie","Electronic"],"genre_hours":[14,9,6]},
-    "user_003": {"age":19,"listening_time":5.0,"songs_played_per_day":35,
-                 "skip_rate":0.45,"ads_listened_per_week":18,"offline_listening":1.5,
-                 "gender":"Female","subscription_type":"Student","device_type":"Web",
-                 "genres":["Pop","K-Pop","Jazz"],"genre_hours":[16,11,5]},
-    "user_004": {"age":35,"listening_time":0.8,"songs_played_per_day":5,
-                 "skip_rate":0.75,"ads_listened_per_week":30,"offline_listening":0.0,
-                 "gender":"Male","subscription_type":"Free","device_type":"Desktop",
-                 "genres":["Rock","Metal","Classical"],"genre_hours":[6,4,2]},
-    "user_005": {"age":24,"listening_time":4.5,"songs_played_per_day":30,
-                 "skip_rate":0.1,"ads_listened_per_week":2,"offline_listening":3.0,
-                 "gender":"Other","subscription_type":"Premium","device_type":"Mobile",
-                 "genres":["Electronic","House","Techno"],"genre_hours":[18,12,8]},
-    "user_006": {"age":31,"listening_time":2.0,"songs_played_per_day":14,
-                 "skip_rate":0.55,"ads_listened_per_week":20,"offline_listening":0.5,
-                 "gender":"Female","subscription_type":"Free","device_type":"Web",
-                 "genres":["RnB","Soul","Jazz"],"genre_hours":[9,6,4]},
-    "user_007": {"age":17,"listening_time":6.0,"songs_played_per_day":45,
-                 "skip_rate":0.3,"ads_listened_per_week":10,"offline_listening":4.0,
-                 "gender":"Male","subscription_type":"Student","device_type":"Mobile",
-                 "genres":["Pop","Hip-Hop","Drill"],"genre_hours":[20,15,8]},
-}
+def get_customer(df, user_id: str) -> dict:
+    """Get a single customer's data from the real dataset by user_id."""
+    row = df[df["user_id"] == user_id].iloc[0]
+    return {
+        "age":                   int(row["age"]),
+        "listening_time":        float(row["listening_time"]),
+        "songs_played_per_day":  int(row["songs_played_per_day"]),
+        "skip_rate":             float(row["skip_rate"]),
+        "ads_listened_per_week": int(row["ads_listened_per_week"]),
+        "offline_listening":     float(row["offline_listening"]),
+        "gender":                str(row["gender"]),
+        "subscription_type":     str(row["subscription_type"]),
+        "device_type":           str(row["device_type"]),
+        "country":               str(row.get("country", "N/A")),
+        "is_churned":            int(row.get("is_churned", -1)),
+    }
 
 # ============================================================================
 # PAGE: HOME
 # ============================================================================
-def page_home(model, scaler, explainer):
+def page_home(model, scaler, explainer, df):
 
     # ── Hero ──────────────────────────────────────────────────────────────
     model_badge = "✅ Model Active" if model else "❌ Model Missing"
@@ -801,72 +805,70 @@ def page_home(model, scaler, explainer):
 
         # ── Customer selector ──
         st.markdown('<div class="section-title">Select Customer</div>', unsafe_allow_html=True)
+
+        if df is None:
+            st.markdown('<div style="background:#ff333318;border:1px solid #ff3333;border-radius:12px;padding:1rem 1.5rem;color:#ff5555;">⚠️ Dataset not found. Add spotify dataset.csv to project folder.</div>', unsafe_allow_html=True)
+            return
+
+        all_ids = df["user_id"].tolist()
         col_sel, col_btn = st.columns([3, 1])
         with col_sel:
             selected_uid = st.selectbox(
-                "Customer ID",
-                list(SAMPLE_CUSTOMERS.keys()),
-                key="tab1_uid",
-                label_visibility="collapsed"
+                "Customer ID", all_ids,
+                key="tab1_uid", label_visibility="collapsed"
             )
         with col_btn:
             predict_clicked = st.button("🔮 Predict", use_container_width=True, key="tab1_predict")
 
         # Auto-predict when selection changes OR button clicked
-        if predict_clicked or st.session_state.get("tab1_last_uid") != selected_uid:
-            st.session_state.tab1_last_uid = selected_uid
-            customer = SAMPLE_CUSTOMERS[selected_uid]
-            inputs = {
-                "age":                   customer["age"],
-                "listening_time":        customer["listening_time"],
-                "songs_played_per_day":  customer["songs_played_per_day"],
-                "skip_rate":             customer["skip_rate"],
-                "ads_listened_per_week": customer["ads_listened_per_week"],
-                "offline_listening":     customer["offline_listening"],
-                "gender":                customer["gender"],
-                "subscription_type":     customer["subscription_type"],
-                "device_type":           customer["device_type"],
-            }
-            with st.spinner(f"Analysing {selected_uid}..."):
-                prediction = make_prediction(model, scaler, selected_uid, inputs)
+        if predict_clicked or st.session_state.get("tab1_last_uid") != str(selected_uid):
+            st.session_state.tab1_last_uid = str(selected_uid)
+            customer = get_customer(df, str(selected_uid))
+            inputs = {k: v for k, v in customer.items()
+                      if k not in ["country", "is_churned"]}
+            with st.spinner(f"Analysing user {selected_uid}..."):
+                prediction = make_prediction(model, scaler, str(selected_uid), inputs)
             if prediction:
                 st.session_state.last_prediction = prediction
 
         st.markdown("---")
-        customer = SAMPLE_CUSTOMERS[selected_uid]
+        customer = get_customer(df, str(selected_uid))
 
         col_form, col_result = st.columns([1, 1], gap="large")
 
         with col_form:
-            st.markdown('<div class="section-title">📋 Customer Data (Read-Only)</div>', unsafe_allow_html=True)
-            # Display all customer fields as styled read-only cards
-            fields = [
-                ("👤 Gender",              customer["gender"]),
-                ("🎂 Age",                 customer["age"]),
-                ("🎵 Subscription",        customer["subscription_type"]),
-                ("📱 Device",              customer["device_type"]),
-                ("⏱️ Listen Time/day",     f"{customer['listening_time']} hrs"),
-                ("🎶 Songs/day",           customer["songs_played_per_day"]),
-                ("⏭️ Skip Rate",           f"{customer['skip_rate']*100:.0f}%"),
-                ("📢 Ads/week",            customer["ads_listened_per_week"]),
-                ("📶 Offline Hours",       f"{customer['offline_listening']} hrs"),
+            st.markdown('<div class="section-title">🎯 Churn-Related Features</div>', unsafe_allow_html=True)
+            # Show only churn-relevant fields as clean display cards
+            churn_fields = [
+                ("⏭️ Skip Rate",          f"{customer['skip_rate']*100:.0f}%",
+                 "High skip = poor recommendations"),
+                ("📢 Ads Per Week",        str(customer["ads_listened_per_week"]),
+                 "More ads = higher frustration"),
+                ("⏱️ Listen Time/day",    f"{customer['listening_time']} hrs",
+                 "Low listening = disengagement"),
+                ("🎶 Songs Per Day",       str(customer["songs_played_per_day"]),
+                 "Low songs = low engagement"),
+                ("📶 Offline Hours",       f"{customer['offline_listening']} hrs",
+                 "Low offline = less Premium value"),
+                ("🎵 Subscription",        customer["subscription_type"],
+                 "Free users churn more often"),
             ]
-            # Display in a 3-column grid of cards
-            rows = [fields[i:i+3] for i in range(0, len(fields), 3)]
+            rows = [churn_fields[i:i+2] for i in range(0, len(churn_fields), 2)]
             for row in rows:
-                cols = st.columns(3)
-                for col, (label, value) in zip(cols, row):
+                cols = st.columns(2)
+                for col, (label, value, hint) in zip(cols, row):
                     with col:
                         st.markdown(f"""
                         <div style="background:#141414;border:1px solid #252525;
-                                    border-radius:10px;padding:0.8rem 1rem;margin-bottom:0.5rem;">
-                            <div style="color:#888;font-size:0.72rem;font-weight:600;
+                                    border-radius:10px;padding:0.9rem 1rem;margin-bottom:0.6rem;">
+                            <div style="color:#1DB954;font-size:0.7rem;font-weight:700;
                                         text-transform:uppercase;letter-spacing:1px;">
                                 {label}
                             </div>
-                            <div style="color:#ffffff;font-size:1.1rem;font-weight:700;
-                                        margin-top:0.3rem;">
-                                {value}
+                            <div style="color:#ffffff;font-size:1.3rem;font-weight:700;
+                                        margin-top:0.3rem;">{value}</div>
+                            <div style="color:#555;font-size:0.75rem;margin-top:0.3rem;">
+                                {hint}
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -970,156 +972,155 @@ def page_home(model, scaler, explainer):
     with tab2:
         st.markdown('<div class="section-title">Customer Profile Explorer</div>', unsafe_allow_html=True)
 
-        col1, col2 = st.columns([3, 1])
-        with col1:
+        if df is None:
+            st.markdown('<div style="background:#ff333318;border:1px solid #ff3333;border-radius:12px;padding:1rem 1.5rem;color:#ff5555;">⚠️ Dataset not found. Add spotify dataset.csv to project folder.</div>', unsafe_allow_html=True)
+        else:
+            all_ids = df["user_id"].tolist()
             profile_uid = st.selectbox(
-                "Select Customer ID",
-                list(SAMPLE_CUSTOMERS.keys()),
-                key="profile_uid"
+                "Select Customer ID", all_ids,
+                key="profile_uid", label_visibility="collapsed"
             )
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            load_clicked = st.button("🔍 Load & Predict", use_container_width=True)
+            customer = get_customer(df, str(profile_uid))
 
-        if load_clicked or st.session_state.get("show_profile", False):
-            st.session_state.show_profile = True
-            customer = SAMPLE_CUSTOMERS[profile_uid]
-
-            # ── Auto-run prediction for this customer ──
-            profile_inputs = {
-                "age":                   customer["age"],
-                "listening_time":        customer["listening_time"],
-                "songs_played_per_day":  customer["songs_played_per_day"],
-                "skip_rate":             customer["skip_rate"],
-                "ads_listened_per_week": customer["ads_listened_per_week"],
-                "offline_listening":     customer["offline_listening"],
-                "gender":                customer["gender"],
-                "subscription_type":     customer["subscription_type"],
-                "device_type":           customer["device_type"],
-            }
-
-            with st.spinner(f"Predicting churn risk for {selected_uid}..."):
-                profile_pred = make_prediction(model, scaler, selected_uid, profile_inputs)
-
-            # ── Customer Info Cards ──
-            st.markdown("<br>", unsafe_allow_html=True)
-            c1, c2, c3, c4, c5 = st.columns(5)
-            with c1: st.metric("Age",            customer["age"])
-            with c2: st.metric("Listen hrs/day", f"{customer['listening_time']:.1f}")
-            with c3: st.metric("Skip Rate",      f"{customer['skip_rate']*100:.0f}%")
-            with c4: st.metric("Subscription",   customer["subscription_type"])
-            with c5: st.metric("Device",         customer["device_type"])
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # ── Prediction Result + Charts side by side ──
-            col_pred, col_chart = st.columns([1, 1], gap="large")
-
-            with col_pred:
-                st.markdown('<div class="section-title">🔮 Churn Prediction</div>', unsafe_allow_html=True)
-                if profile_pred:
-                    prob  = profile_pred["churn_probability"]
-                    risk  = profile_pred["risk_segment"]
-                    label = profile_pred["prediction_label"]
-
-                    # Big result card
-                    risk_color = "#ff4444" if risk=="high_risk" else "#ff9500" if risk=="medium_risk" else "#1DB954"
-                    st.markdown(f"""
-                    <div style="background:linear-gradient(135deg,#141414,#1a1a1a);
-                                border:1px solid {risk_color}44;border-radius:16px;
-                                padding:1.8rem;text-align:center;margin-bottom:1rem;">
-                        <div style="font-size:3rem;font-weight:700;color:{risk_color};">
-                            {prob*100:.1f}%
-                        </div>
-                        <div style="font-size:0.85rem;color:#888;text-transform:uppercase;
-                                    letter-spacing:1px;margin-top:0.3rem;">
-                            Churn Probability
-                        </div>
-                        <div style="margin-top:1rem;">
-                            {get_risk_badge(risk)}
-                        </div>
-                        <div style="margin-top:0.8rem;font-size:1rem;color:#e0e0e0;">
-                            {'⚠️ Likely to Churn' if label==1 else '✅ Likely to Stay'}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    st.plotly_chart(gauge_chart(prob), use_container_width=True)
-
-                    # Playbook suggestion
-                    pb = get_playbooks(profile_pred)
-                    best = pb["recommended_playbooks"][0]
-                    st.markdown(f"""
-                    <div style="background:#141414;border:1px solid #1DB95433;
-                                border-radius:12px;padding:1rem 1.2rem;margin-top:0.5rem;">
+        # ── Top info banner ──
+            sub_color = "#1DB954" if customer["subscription_type"]=="Premium" else \
+                        "#4a9eff" if customer["subscription_type"]=="Student" else "#ff9500"
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#141414,#1c1c1c);
+                        border:1px solid #252525;border-radius:16px;
+                        padding:1.5rem 2rem;margin:1rem 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+                    <div>
                         <div style="color:#1DB954;font-size:0.75rem;font-weight:700;
-                                    text-transform:uppercase;letter-spacing:1px;">
-                            Recommended Playbook
-                        </div>
-                        <div style="color:#e0e0e0;font-weight:600;margin-top:0.4rem;">
-                            📋 {best['name']}
-                        </div>
-                        <div style="color:#888;font-size:0.85rem;margin-top:0.2rem;">
-                            Conv. Lift: {best['estimated_impact']['conversion_rate_lift']:.0%} ·
-                            Retention: {best['estimated_impact']['retention_improvement']:.0%}
+                                    text-transform:uppercase;letter-spacing:2px;">Customer ID</div>
+                        <div style="color:#ffffff;font-size:1.8rem;font-weight:700;margin-top:0.2rem;">
+                            {profile_uid}
                         </div>
                     </div>
-                    """, unsafe_allow_html=True)
+                    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+                        <div style="text-align:center;">
+                            <div style="color:#888;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">Age</div>
+                            <div style="color:#fff;font-size:1.4rem;font-weight:700;">{customer['age']}</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="color:#888;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">Gender</div>
+                            <div style="color:#fff;font-size:1.4rem;font-weight:700;">{customer['gender']}</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="color:#888;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">Country</div>
+                            <div style="color:#fff;font-size:1.4rem;font-weight:700;">{customer['country']}</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="color:#888;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">Device</div>
+                            <div style="color:#fff;font-size:1.4rem;font-weight:700;">{customer['device_type']}</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="color:#888;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;">Plan</div>
+                            <div style="color:{sub_color};font-size:1.4rem;font-weight:700;">{customer['subscription_type']}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            with col_chart:
-                st.markdown('<div class="section-title">🎵 Listening Habits</div>', unsafe_allow_html=True)
-                fig = px.bar(
+        # ── All detail metric cards ──
+            st.markdown('<div class="section-title">📊 Full Activity Details</div>', unsafe_allow_html=True)
+            c1, c2, c3, c4, c5, c6 = st.columns(6)
+            with c1: st.metric("Age",              customer["age"])
+            with c2: st.metric("Listen Time/day",  f"{customer['listening_time']} hrs")
+            with c3: st.metric("Songs/day",         customer["songs_played_per_day"])
+            with c4: st.metric("Skip Rate",         f"{customer['skip_rate']*100:.0f}%")
+            with c5: st.metric("Ads/week",          customer["ads_listened_per_week"])
+            with c6: st.metric("Offline Hours",     f"{customer['offline_listening']} hrs")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # ── Charts row ──
+            col1, col2, col3 = st.columns(3, gap="medium")
+
+            with col1:
+                st.markdown('<div class="section-title">⏱️ Time Breakdown</div>', unsafe_allow_html=True)
+                idle = max(0, 5 - customer["listening_time"] - customer["offline_listening"])
+                fig = px.pie(
                     pd.DataFrame({
-                        "Genre": customer["genres"],
-                        "Hours": customer["genre_hours"]
+                        "Activity": ["Listening","Offline","Idle"],
+                        "Hours":    [customer["listening_time"], customer["offline_listening"], idle]
                     }),
-                    x="Genre", y="Hours", color="Hours",
-                    color_continuous_scale=[[0,"#0d2a18"],[0.5,"#158a3e"],[1,"#1DB954"]])
-                fig.update_layout(**PLOTLY, height=220, showlegend=False,
-                                  coloraxis_showscale=False)
+                    values="Hours", names="Activity", hole=0.5,
+                    color_discrete_map={"Listening":"#1DB954","Offline":"#4a9eff","Idle":"#222222"})
+                fig.update_layout(**PLOTLY, height=260,
+                    annotations=[dict(text="Time",x=0.5,y=0.5,
+                                      font_size=12,font_color="#ccc",showarrow=False)])
+                fig.update_traces(textfont=dict(color="#fff",size=12),
+                                  textinfo="label+percent")
                 st.plotly_chart(fig, use_container_width=True)
 
-                st.markdown('<div class="section-title">📈 Churn Risk Trend</div>', unsafe_allow_html=True)
-                # Generate realistic history based on current risk
-                base = profile_pred["churn_probability"] if profile_pred else 0.5
-                history = [
-                    {"date": (datetime.now()-timedelta(days=i*7)).strftime("%Y-%m-%d"),
-                     "churn_probability": min(0.98, max(0.05, base - (i*0.04) + np.random.uniform(-0.03,0.03)))}
-                    for i in range(5, 0, -1)
+            with col2:
+                st.markdown('<div class="section-title">📢 Engagement Metrics</div>', unsafe_allow_html=True)
+                eng_labels = ["Listen\nTime","Songs\n/day","Skip\nRate","Ads\n/week","Offline"]
+                eng_values = [
+                    min(100, customer["listening_time"]/24*100),
+                    min(100, customer["songs_played_per_day"]/100*100),
+                    customer["skip_rate"]*100,
+                    min(100, customer["ads_listened_per_week"]/50*100),
+                    min(100, customer["offline_listening"]/10*100),
                 ]
-                history.append({"date": datetime.now().strftime("%Y-%m-%d"),
-                                 "churn_probability": base})
-                st.plotly_chart(history_chart(history), use_container_width=True)
+                colors = ["#1DB954","#1DB954","#ff4444","#ff9500","#4a9eff"]
+                fig = go.Figure(data=[go.Bar(
+                    x=eng_labels, y=eng_values,
+                    marker=dict(color=colors, line=dict(width=0)),
+                    text=[f"{v:.0f}%" for v in eng_values],
+                    textposition="auto", textfont=dict(color="#fff", size=11),
+                )])
+                fig.update_layout(**PLOTLY, height=260, showlegend=False,
+                                  yaxis=dict(range=[0,110], gridcolor="#1e1e1e"))
+                st.plotly_chart(fig, use_container_width=True)
 
-            # ── Feature Summary ──
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown('<div class="section-title">📋 Full Feature Profile</div>', unsafe_allow_html=True)
-            feature_df = pd.DataFrame([{
-                "Feature": "Age", "Value": customer["age"],
-            },{
-                "Feature": "Listening Time (hrs/day)", "Value": customer["listening_time"],
-            },{
-                "Feature": "Songs Per Day", "Value": customer["songs_played_per_day"],
-            },{
-                "Feature": "Skip Rate", "Value": f"{customer['skip_rate']*100:.0f}%",
-            },{
-                "Feature": "Ads Per Week", "Value": customer["ads_listened_per_week"],
-            },{
-                "Feature": "Offline Hours", "Value": customer["offline_listening"],
-            },{
-                "Feature": "Gender", "Value": customer["gender"],
-            },{
-                "Feature": "Subscription", "Value": customer["subscription_type"],
-            },{
-                "Feature": "Device", "Value": customer["device_type"],
-            }])
+            with col3:
+                st.markdown('<div class="section-title">📱 Activity Profile</div>', unsafe_allow_html=True)
+                act_labels = ["Songs/day","Ads/week","Offline hrs","Listen hrs"]
+                act_values = [
+                    customer["songs_played_per_day"],
+                    customer["ads_listened_per_week"],
+                    customer["offline_listening"],
+                    customer["listening_time"],
+                ]
+                fig = go.Figure(data=[go.Bar(
+                    y=act_labels, x=act_values, orientation="h",
+                    marker=dict(
+                        color=["#1DB954","#ff9500","#4a9eff","#1DB954"],
+                        line=dict(width=0)),
+                    text=[str(v) for v in act_values],
+                    textposition="auto", textfont=dict(color="#fff", size=11),
+                )])
+                fig.update_layout(**PLOTLY, height=260, showlegend=False,
+                                  margin=dict(l=90,r=20,t=30,b=20))
+                st.plotly_chart(fig, use_container_width=True)
+
+            # ── Full feature table ──
+            st.markdown('<div class="section-title">📋 Complete Feature Profile</div>', unsafe_allow_html=True)
+            all_fields = [
+                {"Feature": "Customer ID",       "Value": str(profile_uid),                        "Category": "Identity"},
+                {"Feature": "Age",               "Value": str(customer["age"]),                    "Category": "Demographics"},
+                {"Feature": "Gender",            "Value": customer["gender"],                      "Category": "Demographics"},
+                {"Feature": "Country",           "Value": customer["country"],                     "Category": "Demographics"},
+                {"Feature": "Subscription",      "Value": customer["subscription_type"],           "Category": "Account"},
+                {"Feature": "Device",            "Value": customer["device_type"],                 "Category": "Account"},
+                {"Feature": "Listen Time/day",   "Value": f"{customer['listening_time']} hrs",     "Category": "Engagement"},
+                {"Feature": "Songs Per Day",     "Value": str(customer["songs_played_per_day"]),   "Category": "Engagement"},
+                {"Feature": "Offline Hours",     "Value": f"{customer['offline_listening']} hrs",  "Category": "Engagement"},
+                {"Feature": "Skip Rate",         "Value": f"{customer['skip_rate']*100:.0f}%",     "Category": "Behaviour"},
+                {"Feature": "Ads Per Week",      "Value": str(customer["ads_listened_per_week"]),  "Category": "Behaviour"},
+                {"Feature": "Churned",           "Value": "Yes" if customer["is_churned"]==1 else "No", "Category": "Status"},
+            ]
             st.dataframe(
-                feature_df,
+                pd.DataFrame(all_fields),
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Feature": st.column_config.TextColumn("Feature", width="medium"),
-                    "Value":   st.column_config.TextColumn("Value",   width="small"),
+                    "Feature":  st.column_config.TextColumn("Feature",  width="medium"),
+                    "Value":    st.column_config.TextColumn("Value",    width="medium"),
+                    "Category": st.column_config.TextColumn("Category", width="small"),
                 }
             )
 
@@ -1293,9 +1294,10 @@ def main():
     if "chat_session_id" not in st.session_state: st.session_state.chat_session_id = f"s_{int(time.time())}"
     if "chat_messages"   not in st.session_state: st.session_state.chat_messages = []
 
-    model    = load_model()
-    scaler   = load_scaler()
+    model     = load_model()
+    scaler    = load_scaler()
     explainer = load_explainer(model) if model else None
+    df        = load_dataset()
 
     with st.sidebar:
         st.markdown("## 🎵 Navigation")
@@ -1305,20 +1307,25 @@ def main():
         st.markdown("---")
         st.markdown("### ⚙️ System Status")
 
-        # Use markdown instead of st.success/error/warning to avoid debug output
-        model_status  = "✅ Model: Loaded"   if model    else "❌ Model: Not Found"
-        scaler_status = "✅ Scaler: Ready"   if scaler   else "⚠️ Scaler: Missing"
-        shap_status   = "✅ SHAP: Ready"     if explainer else "⚠️ SHAP: Unavailable"
+        model_status  = "✅ Model: Loaded"        if model    else "❌ Model: Not Found"
+        scaler_status = "✅ Scaler: Ready"         if scaler   else "⚠️ Scaler: Missing"
+        shap_status   = "✅ SHAP: Ready"           if explainer else "⚠️ SHAP: Unavailable"
+        data_status   = f"✅ Dataset: {len(df):,} users" if df is not None else "❌ Dataset: Not Found"
 
         model_color  = "#1DB954" if model    else "#ff4444"
         scaler_color = "#1DB954" if scaler   else "#ff9500"
         shap_color   = "#1DB954" if explainer else "#ff9500"
+        data_color   = "#1DB954" if df is not None else "#ff4444"
 
         st.markdown(f"""
 <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
     <div style="background:#141414;border:1px solid {model_color}33;border-radius:8px;
                 padding:8px 12px;color:{model_color};font-size:0.88rem;font-weight:600;">
         {model_status}
+    </div>
+    <div style="background:#141414;border:1px solid {data_color}33;border-radius:8px;
+                padding:8px 12px;color:{data_color};font-size:0.88rem;font-weight:600;">
+        {data_status}
     </div>
     <div style="background:#141414;border:1px solid {scaler_color}33;border-radius:8px;
                 padding:8px 12px;color:{scaler_color};font-size:0.88rem;font-weight:600;">
@@ -1344,7 +1351,7 @@ v2.0 — Standalone · No backend<br><br>
         """, unsafe_allow_html=True)
 
     if st.session_state.page == "home":
-        page_home(model, scaler, explainer)
+        page_home(model, scaler, explainer, df)
     else:
         page_help()
 
