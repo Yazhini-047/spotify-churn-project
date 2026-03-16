@@ -801,197 +801,192 @@ def page_home(model, scaler, explainer, df):
     with tab1:
         if model is None:
             st.markdown('<div style="background:#ff333318;border:1px solid #ff3333;border-radius:12px;padding:1rem 1.5rem;color:#ff5555;">⚠️ No model file found. Add spotify_churn_model.pkl to your project folder and redeploy.</div>', unsafe_allow_html=True)
-            return
-
-        # ── Customer selector ──
-        st.markdown('<div class="section-title">Select Customer</div>', unsafe_allow_html=True)
-
-        if df is None:
+        elif df is None:
             st.markdown('<div style="background:#ff333318;border:1px solid #ff3333;border-radius:12px;padding:1rem 1.5rem;color:#ff5555;">⚠️ Dataset not found. Add spotify dataset.csv to project folder.</div>', unsafe_allow_html=True)
-            return
+        else:
 
-        all_ids = df["user_id"].tolist()
-        col_sel, col_btn = st.columns([3, 1])
-        with col_sel:
-            selected_uid = st.selectbox(
-                "Customer ID", all_ids,
-                key="tab1_uid", label_visibility="collapsed"
-            )
-        with col_btn:
-            predict_clicked = st.button("🔮 Predict", use_container_width=True, key="tab1_predict")
-
-        # Auto-predict when selection changes OR button clicked
-        if predict_clicked or st.session_state.get("tab1_last_uid") != str(selected_uid):
-            st.session_state.tab1_last_uid = str(selected_uid)
-            customer = get_customer(df, str(selected_uid))
-            inputs = {k: v for k, v in customer.items()
-                      if k not in ["country", "is_churned"]}
-            with st.spinner(f"Analysing user {selected_uid}..."):
-                prediction = make_prediction(model, scaler, str(selected_uid), inputs)
-            if prediction:
-                st.session_state.last_prediction = prediction
-
-        st.markdown("---")
-        customer = get_customer(df, str(selected_uid))
-
-        col_form, col_result = st.columns([1, 1], gap="large")
-
-        with col_form:
-            st.markdown('<div class="section-title">🎯 Churn-Related Features</div>', unsafe_allow_html=True)
-            # Show only churn-relevant fields as clean display cards
-            churn_fields = [
-                ("⏭️ Skip Rate",          f"{customer['skip_rate']*100:.0f}%",
-                 "High skip = poor recommendations"),
-                ("📢 Ads Per Week",        str(customer["ads_listened_per_week"]),
-                 "More ads = higher frustration"),
-                ("⏱️ Listen Time/day",    f"{customer['listening_time']} hrs",
-                 "Low listening = disengagement"),
-                ("🎶 Songs Per Day",       str(customer["songs_played_per_day"]),
-                 "Low songs = low engagement"),
-                ("📶 Offline Hours",       f"{customer['offline_listening']} hrs",
-                 "Low offline = less Premium value"),
-                ("🎵 Subscription",        customer["subscription_type"],
-                 "Free users churn more often"),
-            ]
-            rows = [churn_fields[i:i+2] for i in range(0, len(churn_fields), 2)]
-            for row in rows:
-                cols = st.columns(2)
-                for col, (label, value, hint) in zip(cols, row):
-                    with col:
-                        st.markdown(f"""
-                        <div style="background:#141414;border:1px solid #252525;
-                                    border-radius:10px;padding:0.9rem 1rem;margin-bottom:0.6rem;">
-                            <div style="color:#1DB954;font-size:0.7rem;font-weight:700;
-                                        text-transform:uppercase;letter-spacing:1px;">
-                                {label}
-                            </div>
-                            <div style="color:#ffffff;font-size:1.3rem;font-weight:700;
-                                        margin-top:0.3rem;">{value}</div>
-                            <div style="color:#555;font-size:0.75rem;margin-top:0.3rem;">
-                                {hint}
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-        with col_result:
-            st.markdown('<div class="section-title">🎯 Prediction Result</div>', unsafe_allow_html=True)
-
-            if st.session_state.get("last_prediction"):
-                pred  = st.session_state.last_prediction
-                prob  = pred["churn_probability"]
-                risk  = pred["risk_segment"]
-                label = pred["prediction_label"]
-                risk_color = "#ff4444" if risk=="high_risk" else "#ff9500" if risk=="medium_risk" else "#1DB954"
-                verdict    = "⚠️ Will Churn"  if label==1 else "✅ Will Retain"
-
-                # 3 metric cards with full text visible
-                st.markdown(f"""
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1rem;">
-                    <div style="background:#141414;border:1px solid #252525;border-radius:12px;
-                                padding:1rem;text-align:center;">
-                        <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
-                                    letter-spacing:1px;font-weight:600;">Churn Risk</div>
-                        <div style="color:{risk_color};font-size:1.8rem;font-weight:700;
-                                    margin-top:0.3rem;">{prob*100:.1f}%</div>
-                    </div>
-                    <div style="background:#141414;border:1px solid #252525;border-radius:12px;
-                                padding:1rem;text-align:center;">
-                        <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
-                                    letter-spacing:1px;font-weight:600;">Confidence</div>
-                        <div style="color:#ffffff;font-size:1.8rem;font-weight:700;
-                                    margin-top:0.3rem;">{pred['confidence_score']*100:.0f}%</div>
-                    </div>
-                    <div style="background:#141414;border:1px solid {risk_color}55;border-radius:12px;
-                                padding:1rem;text-align:center;">
-                        <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
-                                    letter-spacing:1px;font-weight:600;">Verdict</div>
-                        <div style="color:{risk_color};font-size:1rem;font-weight:700;
-                                    margin-top:0.3rem;">{verdict}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.markdown(
-                    f"**Risk Level:** {get_risk_badge(risk)}&nbsp;&nbsp;"
-                    f"**{get_risk_emoji(risk)} {risk.replace('_',' ').title()}**",
-                    unsafe_allow_html=True
+            all_ids = df["user_id"].tolist()
+            col_sel, col_btn = st.columns([3, 1])
+            with col_sel:
+                selected_uid = st.selectbox(
+                    "Customer ID", all_ids,
+                    key="tab1_uid", label_visibility="collapsed"
                 )
-                st.plotly_chart(gauge_chart(prob), use_container_width=True)
-            else:
-                st.markdown("""
-                <div style="background:#141414;border:1px dashed #333;border-radius:16px;
-                             padding:3rem;text-align:center;">
-                    <div style="font-size:3rem;margin-bottom:1rem;">🎯</div>
-                    <div style="font-size:1rem;color:#888;">Select a customer above to see prediction</div>
-                </div>
-                """, unsafe_allow_html=True)
+            with col_btn:
+                predict_clicked = st.button("🔮 Predict", use_container_width=True, key="tab1_predict")
 
-        # ── EXPLANATION & PLAYBOOKS ───────────────────────────────────────
-        if st.session_state.get("last_prediction"):
-            pred = st.session_state.last_prediction
+            # Auto-predict when selection changes OR button clicked
+            if predict_clicked or st.session_state.get("tab1_last_uid") != str(selected_uid):
+                st.session_state.tab1_last_uid = str(selected_uid)
+                customer = get_customer(df, str(selected_uid))
+                inputs = {k: v for k, v in customer.items()
+                          if k not in ["country", "is_churned"]}
+                with st.spinner(f"Analysing user {selected_uid}..."):
+                    prediction = make_prediction(model, scaler, str(selected_uid), inputs)
+                if prediction:
+                    st.session_state.last_prediction = prediction
+
             st.markdown("---")
-            col_exp, col_pb = st.columns(2, gap="large")
+            customer = get_customer(df, str(selected_uid))
 
-            with col_exp:
-                st.markdown('<div class="section-title">📖 XAI — SHAP Explanation</div>', unsafe_allow_html=True)
-                if st.button("Generate SHAP Explanation", use_container_width=True, key="explain_btn"):
-                    if explainer is None:
-                        st.warning("⚠️ SHAP unavailable for this model type. Showing rule-based insights.")
-                        for i in _build_insights([], pred["risk_segment"]):
-                            st.success(i)
-                    else:
-                        with st.spinner("Computing SHAP values..."):
-                            explanation = make_explanation(explainer, pred)
-                        if explanation:
-                            st.info(f"**Summary:** {explanation['summary']}")
-                            fig = shap_chart(explanation["feature_attributions"])
-                            st.plotly_chart(fig, use_container_width=True)
-                            st.markdown("**🔑 Key Drivers:**")
-                            for d in explanation["key_drivers"]:
-                                st.markdown(f"&nbsp;&nbsp;&nbsp;• {d}")
-                            st.markdown("**💡 Actionable Insights:**")
-                            for i in explanation["actionable_insights"]:
-                                st.success(i)
+            col_form, col_result = st.columns([1, 1], gap="large")
 
-            with col_pb:
-                st.markdown('<div class="section-title">🎬 Playbook Recommendations</div>', unsafe_allow_html=True)
-                if st.button("Get Playbook Recommendations", use_container_width=True, key="playbook_btn"):
-                    pb = get_playbooks(pred)
-                    st.success(f"✅ Best Match: **{pb['best_playbook_id']}**")
-                    for p in pb["recommended_playbooks"]:
-                        with st.expander(f"📋 {p['name']}  ·  Priority {p['priority']}", expanded=True):
-                            st.caption(p["description"])
-                            c1, c2, c3 = st.columns(3)
+            with col_form:
+                st.markdown('<div class="section-title">🎯 Churn-Related Features</div>', unsafe_allow_html=True)
+                # Show only churn-relevant fields as clean display cards
+                churn_fields = [
+                    ("⏭️ Skip Rate",          f"{customer['skip_rate']*100:.0f}%",
+                     "High skip = poor recommendations"),
+                    ("📢 Ads Per Week",        str(customer["ads_listened_per_week"]),
+                     "More ads = higher frustration"),
+                    ("⏱️ Listen Time/day",    f"{customer['listening_time']} hrs",
+                     "Low listening = disengagement"),
+                    ("🎶 Songs Per Day",       str(customer["songs_played_per_day"]),
+                     "Low songs = low engagement"),
+                    ("📶 Offline Hours",       f"{customer['offline_listening']} hrs",
+                     "Low offline = less Premium value"),
+                    ("🎵 Subscription",        customer["subscription_type"],
+                     "Free users churn more often"),
+                ]
+                rows = [churn_fields[i:i+2] for i in range(0, len(churn_fields), 2)]
+                for row in rows:
+                    cols = st.columns(2)
+                    for col, (label, value, hint) in zip(cols, row):
+                        with col:
                             st.markdown(f"""
-                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0.8rem 0;">
-                                <div style="background:#0d1f14;border:1px solid #1DB95444;border-radius:10px;
-                                            padding:0.8rem;text-align:center;">
-                                    <div style="color:#1DB954;font-size:0.7rem;font-weight:700;
-                                                text-transform:uppercase;letter-spacing:1px;">Conversion Lift</div>
-                                    <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
-                                        {p['estimated_impact']['conversion_rate_lift']:.0%}
-                                    </div>
+                            <div style="background:#141414;border:1px solid #252525;
+                                        border-radius:10px;padding:0.9rem 1rem;margin-bottom:0.6rem;">
+                                <div style="color:#1DB954;font-size:0.7rem;font-weight:700;
+                                            text-transform:uppercase;letter-spacing:1px;">
+                                    {label}
                                 </div>
-                                <div style="background:#1a1000;border:1px solid #ff950044;border-radius:10px;
-                                            padding:0.8rem;text-align:center;">
-                                    <div style="color:#ff9500;font-size:0.7rem;font-weight:700;
-                                                text-transform:uppercase;letter-spacing:1px;">Retention Boost</div>
-                                    <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
-                                        {p['estimated_impact']['retention_improvement']:.0%}
-                                    </div>
-                                </div>
-                                <div style="background:#0a0a1f;border:1px solid #4a9eff44;border-radius:10px;
-                                            padding:0.8rem;text-align:center;">
-                                    <div style="color:#4a9eff;font-size:0.7rem;font-weight:700;
-                                                text-transform:uppercase;letter-spacing:1px;">Revenue/User</div>
-                                    <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
-                                        ${p['estimated_impact']['revenue']:.2f}
-                                    </div>
+                                <div style="color:#ffffff;font-size:1.3rem;font-weight:700;
+                                            margin-top:0.3rem;">{value}</div>
+                                <div style="color:#555;font-size:0.75rem;margin-top:0.3rem;">
+                                    {hint}
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
-                            for a in p["actions"]:
-                                st.markdown(f"**Step {a['step']}** `{a['channel']}` — {a['action']}")
+
+            with col_result:
+                st.markdown('<div class="section-title">🎯 Prediction Result</div>', unsafe_allow_html=True)
+
+                if st.session_state.get("last_prediction"):
+                    pred  = st.session_state.last_prediction
+                    prob  = pred["churn_probability"]
+                    risk  = pred["risk_segment"]
+                    label = pred["prediction_label"]
+                    risk_color = "#ff4444" if risk=="high_risk" else "#ff9500" if risk=="medium_risk" else "#1DB954"
+                    verdict    = "⚠️ Will Churn"  if label==1 else "✅ Will Retain"
+
+                    # 3 metric cards with full text visible
+                    st.markdown(f"""
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1rem;">
+                        <div style="background:#141414;border:1px solid #252525;border-radius:12px;
+                                    padding:1rem;text-align:center;">
+                            <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
+                                        letter-spacing:1px;font-weight:600;">Churn Risk</div>
+                            <div style="color:{risk_color};font-size:1.8rem;font-weight:700;
+                                        margin-top:0.3rem;">{prob*100:.1f}%</div>
+                        </div>
+                        <div style="background:#141414;border:1px solid #252525;border-radius:12px;
+                                    padding:1rem;text-align:center;">
+                            <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
+                                        letter-spacing:1px;font-weight:600;">Confidence</div>
+                            <div style="color:#ffffff;font-size:1.8rem;font-weight:700;
+                                        margin-top:0.3rem;">{pred['confidence_score']*100:.0f}%</div>
+                        </div>
+                        <div style="background:#141414;border:1px solid {risk_color}55;border-radius:12px;
+                                    padding:1rem;text-align:center;">
+                            <div style="color:#888;font-size:0.7rem;text-transform:uppercase;
+                                        letter-spacing:1px;font-weight:600;">Verdict</div>
+                            <div style="color:{risk_color};font-size:1rem;font-weight:700;
+                                        margin-top:0.3rem;">{verdict}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown(
+                        f"**Risk Level:** {get_risk_badge(risk)}&nbsp;&nbsp;"
+                        f"**{get_risk_emoji(risk)} {risk.replace('_',' ').title()}**",
+                        unsafe_allow_html=True
+                    )
+                    st.plotly_chart(gauge_chart(prob), use_container_width=True)
+                else:
+                    st.markdown("""
+                    <div style="background:#141414;border:1px dashed #333;border-radius:16px;
+                                 padding:3rem;text-align:center;">
+                        <div style="font-size:3rem;margin-bottom:1rem;">🎯</div>
+                        <div style="font-size:1rem;color:#888;">Select a customer above to see prediction</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # ── EXPLANATION & PLAYBOOKS ───────────────────────────────────────
+            if st.session_state.get("last_prediction"):
+                pred = st.session_state.last_prediction
+                st.markdown("---")
+                col_exp, col_pb = st.columns(2, gap="large")
+
+                with col_exp:
+                    st.markdown('<div class="section-title">📖 XAI — SHAP Explanation</div>', unsafe_allow_html=True)
+                    if st.button("Generate SHAP Explanation", use_container_width=True, key="explain_btn"):
+                        if explainer is None:
+                            st.warning("⚠️ SHAP unavailable for this model type. Showing rule-based insights.")
+                            for i in _build_insights([], pred["risk_segment"]):
+                                st.success(i)
+                        else:
+                            with st.spinner("Computing SHAP values..."):
+                                explanation = make_explanation(explainer, pred)
+                            if explanation:
+                                st.info(f"**Summary:** {explanation['summary']}")
+                                fig = shap_chart(explanation["feature_attributions"])
+                                st.plotly_chart(fig, use_container_width=True)
+                                st.markdown("**🔑 Key Drivers:**")
+                                for d in explanation["key_drivers"]:
+                                    st.markdown(f"&nbsp;&nbsp;&nbsp;• {d}")
+                                st.markdown("**💡 Actionable Insights:**")
+                                for i in explanation["actionable_insights"]:
+                                    st.success(i)
+
+                with col_pb:
+                    st.markdown('<div class="section-title">🎬 Playbook Recommendations</div>', unsafe_allow_html=True)
+                    if st.button("Get Playbook Recommendations", use_container_width=True, key="playbook_btn"):
+                        pb = get_playbooks(pred)
+                        st.success(f"✅ Best Match: **{pb['best_playbook_id']}**")
+                        for p in pb["recommended_playbooks"]:
+                            with st.expander(f"📋 {p['name']}  ·  Priority {p['priority']}", expanded=True):
+                                st.caption(p["description"])
+                                c1, c2, c3 = st.columns(3)
+                                st.markdown(f"""
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0.8rem 0;">
+                                    <div style="background:#0d1f14;border:1px solid #1DB95444;border-radius:10px;
+                                                padding:0.8rem;text-align:center;">
+                                        <div style="color:#1DB954;font-size:0.7rem;font-weight:700;
+                                                    text-transform:uppercase;letter-spacing:1px;">Conversion Lift</div>
+                                        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
+                                            {p['estimated_impact']['conversion_rate_lift']:.0%}
+                                        </div>
+                                    </div>
+                                    <div style="background:#1a1000;border:1px solid #ff950044;border-radius:10px;
+                                                padding:0.8rem;text-align:center;">
+                                        <div style="color:#ff9500;font-size:0.7rem;font-weight:700;
+                                                    text-transform:uppercase;letter-spacing:1px;">Retention Boost</div>
+                                        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
+                                            {p['estimated_impact']['retention_improvement']:.0%}
+                                        </div>
+                                    </div>
+                                    <div style="background:#0a0a1f;border:1px solid #4a9eff44;border-radius:10px;
+                                                padding:0.8rem;text-align:center;">
+                                        <div style="color:#4a9eff;font-size:0.7rem;font-weight:700;
+                                                    text-transform:uppercase;letter-spacing:1px;">Revenue/User</div>
+                                        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
+                                            ${p['estimated_impact']['revenue']:.2f}
+                                        </div>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                for a in p["actions"]:
+                                    st.markdown(f"**Step {a['step']}** `{a['channel']}` — {a['action']}")
 
     # ── TAB 2: CUSTOMER PROFILE ───────────────────────────────────────────
     with tab2:
