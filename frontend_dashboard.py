@@ -1007,7 +1007,7 @@ def page_home(model, scaler, explainer, df):
             )
             customer = get_customer(df, str(profile_uid))
 
-        # ── Top info banner ──
+            # ── Top info banner ──
             sub_color = "#1DB954" if customer["subscription_type"]=="Premium" else \
                         "#4a9eff" if customer["subscription_type"]=="Student" else "#ff9500"
             st.markdown(f"""
