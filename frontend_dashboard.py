@@ -778,9 +778,9 @@ def page_home(model, scaler, explainer):
                 subscription_type = st.selectbox("Subscription", ["Free", "Premium", "Student"])
                 device_type       = st.selectbox("Device", ["Mobile", "Desktop", "Web"])
             with col_b:
-                age               = st.number_input("Age", min_value=13, max_value=80, value=25)
-                listening_time    = st.number_input("Listening Time (hrs/day)", min_value=0.0, max_value=24.0, value=2.5, step=0.5)
-                songs_played_per_day = st.number_input("Songs Per Day", min_value=0, max_value=200, value=20)
+                age                  = st.slider("Age", 13, 80, 25)
+                listening_time       = st.slider("Listening Time (hrs/day)", 0.0, 24.0, 2.5, step=0.5)
+                songs_played_per_day = st.slider("Songs Per Day", 0, 200, 20)
 
             col_c, col_d = st.columns(2)
             with col_c:
@@ -791,6 +791,23 @@ def page_home(model, scaler, explainer):
 
             st.markdown("<br>", unsafe_allow_html=True)
             predict_clicked = st.button("🔮  Run Churn Prediction", use_container_width=True)
+
+            # Build a fingerprint of current inputs to detect changes
+            current_inputs = {
+                "user_id": user_id, "age": age,
+                "listening_time": listening_time,
+                "songs_played_per_day": songs_played_per_day,
+                "skip_rate": skip_rate,
+                "ads_listened_per_week": ads_listened_per_week,
+                "offline_listening": offline_listening,
+                "gender": gender,
+                "subscription_type": subscription_type,
+                "device_type": device_type,
+            }
+            # Clear old prediction when inputs change
+            if st.session_state.get("last_inputs") != current_inputs:
+                st.session_state.last_prediction = {}
+                st.session_state.last_inputs = current_inputs
 
         with col_result:
             st.markdown('<div class="section-title">Prediction Result</div>', unsafe_allow_html=True)
@@ -812,6 +829,7 @@ def page_home(model, scaler, explainer):
 
                 if prediction:
                     st.session_state.last_prediction = prediction
+                    st.session_state.last_inputs = current_inputs
 
             if st.session_state.get("last_prediction"):
                 pred  = st.session_state.last_prediction
@@ -835,8 +853,8 @@ def page_home(model, scaler, explainer):
                 <div style="background:#141414;border:1px dashed #333;border-radius:16px;
                              padding:3rem;text-align:center;color:#555;">
                     <div style="font-size:3rem;margin-bottom:1rem;">🎯</div>
-                    <div style="font-size:1.1rem;font-weight:600;">Fill in the form and click</div>
-                    <div style="font-size:0.9rem;margin-top:0.3rem;">Run Churn Prediction</div>
+                    <div style="font-size:1.1rem;font-weight:600;color:#888;">Fill in the form and click</div>
+                    <div style="font-size:0.9rem;margin-top:0.3rem;color:#555;">Run Churn Prediction</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -885,38 +903,183 @@ def page_home(model, scaler, explainer):
     # ── TAB 2: CUSTOMER PROFILE ───────────────────────────────────────────
     with tab2:
         st.markdown('<div class="section-title">Customer Profile Explorer</div>', unsafe_allow_html=True)
+
+        # Sample customer database — realistic profiles
+        SAMPLE_CUSTOMERS = {
+            "user_001": {"age":22,"listening_time":1.5,"songs_played_per_day":8,
+                         "skip_rate":0.65,"ads_listened_per_week":25,"offline_listening":0.0,
+                         "gender":"Male","subscription_type":"Free","device_type":"Mobile",
+                         "genres":["Hip-Hop","Trap","RnB"],"genre_hours":[10,7,4]},
+            "user_002": {"age":28,"listening_time":3.2,"songs_played_per_day":22,
+                         "skip_rate":0.2,"ads_listened_per_week":5,"offline_listening":2.0,
+                         "gender":"Female","subscription_type":"Premium","device_type":"Mobile",
+                         "genres":["Pop","Indie","Electronic"],"genre_hours":[14,9,6]},
+            "user_003": {"age":19,"listening_time":5.0,"songs_played_per_day":35,
+                         "skip_rate":0.45,"ads_listened_per_week":18,"offline_listening":1.5,
+                         "gender":"Female","subscription_type":"Student","device_type":"Web",
+                         "genres":["Pop","K-Pop","Jazz"],"genre_hours":[16,11,5]},
+            "user_004": {"age":35,"listening_time":0.8,"songs_played_per_day":5,
+                         "skip_rate":0.75,"ads_listened_per_week":30,"offline_listening":0.0,
+                         "gender":"Male","subscription_type":"Free","device_type":"Desktop",
+                         "genres":["Rock","Metal","Classical"],"genre_hours":[6,4,2]},
+            "user_005": {"age":24,"listening_time":4.5,"songs_played_per_day":30,
+                         "skip_rate":0.1,"ads_listened_per_week":2,"offline_listening":3.0,
+                         "gender":"Other","subscription_type":"Premium","device_type":"Mobile",
+                         "genres":["Electronic","House","Techno"],"genre_hours":[18,12,8]},
+        }
+
         col1, col2 = st.columns([3, 1])
         with col1:
-            profile_uid = st.text_input("Enter User ID", value="user_002", key="profile_uid")
+            selected_uid = st.selectbox(
+                "Select Customer ID",
+                list(SAMPLE_CUSTOMERS.keys()),
+                key="profile_uid"
+            )
         with col2:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Load Profile", use_container_width=True):
-                st.session_state.show_profile = True
+            load_clicked = st.button("🔍 Load & Predict", use_container_width=True)
 
-        if st.session_state.get("show_profile", False):
-            c1, c2, c3, c4 = st.columns(4)
-            with c1: st.metric("Age",           "27")
-            with c2: st.metric("Listen (hrs/d)","2.8")
-            with c3: st.metric("Skip Rate",     "38%")
-            with c4: st.metric("Subscription",  "Free")
+        if load_clicked or st.session_state.get("show_profile", False):
+            st.session_state.show_profile = True
+            customer = SAMPLE_CUSTOMERS[selected_uid]
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown('<div class="section-title">Listening by Genre</div>', unsafe_allow_html=True)
+            # ── Auto-run prediction for this customer ──
+            profile_inputs = {
+                "age":                   customer["age"],
+                "listening_time":        customer["listening_time"],
+                "songs_played_per_day":  customer["songs_played_per_day"],
+                "skip_rate":             customer["skip_rate"],
+                "ads_listened_per_week": customer["ads_listened_per_week"],
+                "offline_listening":     customer["offline_listening"],
+                "gender":                customer["gender"],
+                "subscription_type":     customer["subscription_type"],
+                "device_type":           customer["device_type"],
+            }
+
+            with st.spinner(f"Predicting churn risk for {selected_uid}..."):
+                profile_pred = make_prediction(model, scaler, selected_uid, profile_inputs)
+
+            # ── Customer Info Cards ──
+            st.markdown("<br>", unsafe_allow_html=True)
+            c1, c2, c3, c4, c5 = st.columns(5)
+            with c1: st.metric("Age",            customer["age"])
+            with c2: st.metric("Listen hrs/day", f"{customer['listening_time']:.1f}")
+            with c3: st.metric("Skip Rate",      f"{customer['skip_rate']*100:.0f}%")
+            with c4: st.metric("Subscription",   customer["subscription_type"])
+            with c5: st.metric("Device",         customer["device_type"])
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # ── Prediction Result + Charts side by side ──
+            col_pred, col_chart = st.columns([1, 1], gap="large")
+
+            with col_pred:
+                st.markdown('<div class="section-title">🔮 Churn Prediction</div>', unsafe_allow_html=True)
+                if profile_pred:
+                    prob  = profile_pred["churn_probability"]
+                    risk  = profile_pred["risk_segment"]
+                    label = profile_pred["prediction_label"]
+
+                    # Big result card
+                    risk_color = "#ff4444" if risk=="high_risk" else "#ff9500" if risk=="medium_risk" else "#1DB954"
+                    st.markdown(f"""
+                    <div style="background:linear-gradient(135deg,#141414,#1a1a1a);
+                                border:1px solid {risk_color}44;border-radius:16px;
+                                padding:1.8rem;text-align:center;margin-bottom:1rem;">
+                        <div style="font-size:3rem;font-weight:700;color:{risk_color};">
+                            {prob*100:.1f}%
+                        </div>
+                        <div style="font-size:0.85rem;color:#888;text-transform:uppercase;
+                                    letter-spacing:1px;margin-top:0.3rem;">
+                            Churn Probability
+                        </div>
+                        <div style="margin-top:1rem;">
+                            {get_risk_badge(risk)}
+                        </div>
+                        <div style="margin-top:0.8rem;font-size:1rem;color:#e0e0e0;">
+                            {'⚠️ Likely to Churn' if label==1 else '✅ Likely to Stay'}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.plotly_chart(gauge_chart(prob), use_container_width=True)
+
+                    # Playbook suggestion
+                    pb = get_playbooks(profile_pred)
+                    best = pb["recommended_playbooks"][0]
+                    st.markdown(f"""
+                    <div style="background:#141414;border:1px solid #1DB95433;
+                                border-radius:12px;padding:1rem 1.2rem;margin-top:0.5rem;">
+                        <div style="color:#1DB954;font-size:0.75rem;font-weight:700;
+                                    text-transform:uppercase;letter-spacing:1px;">
+                            Recommended Playbook
+                        </div>
+                        <div style="color:#e0e0e0;font-weight:600;margin-top:0.4rem;">
+                            📋 {best['name']}
+                        </div>
+                        <div style="color:#888;font-size:0.85rem;margin-top:0.2rem;">
+                            Conv. Lift: {best['estimated_impact']['conversion_rate_lift']:.0%} ·
+                            Retention: {best['estimated_impact']['retention_improvement']:.0%}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with col_chart:
+                st.markdown('<div class="section-title">🎵 Listening Habits</div>', unsafe_allow_html=True)
                 fig = px.bar(
-                    pd.DataFrame({"Genre":["Pop","Hip-Hop","RnB","Electronic","Jazz"],
-                                  "Hours":[12,9,6,4,2]}),
+                    pd.DataFrame({
+                        "Genre": customer["genres"],
+                        "Hours": customer["genre_hours"]
+                    }),
                     x="Genre", y="Hours", color="Hours",
                     color_continuous_scale=[[0,"#0d2a18"],[0.5,"#158a3e"],[1,"#1DB954"]])
-                fig.update_layout(**PLOTLY, height=260, showlegend=False,
+                fig.update_layout(**PLOTLY, height=220, showlegend=False,
                                   coloraxis_showscale=False)
                 st.plotly_chart(fig, use_container_width=True)
 
-            with col2:
-                st.markdown('<div class="section-title">Churn Risk History</div>', unsafe_allow_html=True)
-                history = [{"date":(datetime.now()-timedelta(days=i*5)).strftime("%Y-%m-%d"),
-                            "churn_probability":min(0.95,0.35+i*0.06)} for i in range(6,0,-1)]
+                st.markdown('<div class="section-title">📈 Churn Risk Trend</div>', unsafe_allow_html=True)
+                # Generate realistic history based on current risk
+                base = profile_pred["churn_probability"] if profile_pred else 0.5
+                history = [
+                    {"date": (datetime.now()-timedelta(days=i*7)).strftime("%Y-%m-%d"),
+                     "churn_probability": min(0.98, max(0.05, base - (i*0.04) + np.random.uniform(-0.03,0.03)))}
+                    for i in range(5, 0, -1)
+                ]
+                history.append({"date": datetime.now().strftime("%Y-%m-%d"),
+                                 "churn_probability": base})
                 st.plotly_chart(history_chart(history), use_container_width=True)
+
+            # ── Feature Summary ──
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<div class="section-title">📋 Full Feature Profile</div>', unsafe_allow_html=True)
+            feature_df = pd.DataFrame([{
+                "Feature": "Age", "Value": customer["age"],
+            },{
+                "Feature": "Listening Time (hrs/day)", "Value": customer["listening_time"],
+            },{
+                "Feature": "Songs Per Day", "Value": customer["songs_played_per_day"],
+            },{
+                "Feature": "Skip Rate", "Value": f"{customer['skip_rate']*100:.0f}%",
+            },{
+                "Feature": "Ads Per Week", "Value": customer["ads_listened_per_week"],
+            },{
+                "Feature": "Offline Hours", "Value": customer["offline_listening"],
+            },{
+                "Feature": "Gender", "Value": customer["gender"],
+            },{
+                "Feature": "Subscription", "Value": customer["subscription_type"],
+            },{
+                "Feature": "Device", "Value": customer["device_type"],
+            }])
+            st.dataframe(
+                feature_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Feature": st.column_config.TextColumn("Feature", width="medium"),
+                    "Value":   st.column_config.TextColumn("Value",   width="small"),
+                }
+            )
 
     # ── TAB 3: ANALYTICS ─────────────────────────────────────────────────
     with tab3:
@@ -940,7 +1103,11 @@ def page_home(model, scaler, explainer):
             fig.update_layout(**PLOTLY, height=300,
                 annotations=[dict(text="Risk<br>Split",x=0.5,y=0.5,
                                   font_size=13,font_color="#cccccc",showarrow=False)])
-            fig.update_traces(textfont_color="#fff")
+            fig.update_traces(
+                textfont=dict(color="#ffffff", size=13),
+                textinfo="label+percent",
+                hovertemplate="<b>%{label}</b><br>Count: %{value}<br>%{percent}<extra></extra>"
+            )
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
@@ -1078,6 +1245,7 @@ The scaler was saved with a newer sklearn version. This is a version mismatch wa
 def main():
     if "page"            not in st.session_state: st.session_state.page = "home"
     if "last_prediction" not in st.session_state: st.session_state.last_prediction = {}
+    if "last_inputs"     not in st.session_state: st.session_state.last_inputs = {}
     if "show_profile"    not in st.session_state: st.session_state.show_profile = False
     if "chat_session_id" not in st.session_state: st.session_state.chat_session_id = f"s_{int(time.time())}"
     if "chat_messages"   not in st.session_state: st.session_state.chat_messages = []
