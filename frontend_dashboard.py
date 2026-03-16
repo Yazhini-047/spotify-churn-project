@@ -990,115 +990,104 @@ def page_home(model, scaler, explainer, df):
     # ================================================================
     # TAB 3 - ANALYTICS
     # ================================================================
+    # ================================================================
+    # TAB 3 - ANALYTICS
+    # ================================================================
+    # ================================================================
+    # TAB 3 - ANALYTICS
+    # ================================================================
     with tab3:
-        st.markdown('<div class="section-title">📊 Platform Analytics</div>', unsafe_allow_html=True)
         if df is None:
-            st.markdown("**⚠️ Dataset not found.**")
+            st.markdown("### Dataset not loaded")
         else:
-            total   = len(df)
-            churned = int(df["is_churned"].sum())
-            rate    = round(churned / total * 100, 1)
-            skip    = round(df["skip_rate"].mean() * 100, 1)
-            listen  = round(df["listening_time"].mean(), 1)
+            total      = len(df)
+            churned    = int(df["is_churned"].sum())
+            kept       = total - churned
+            rate       = round(churned / total * 100, 1)
+            avg_skip   = round(df["skip_rate"].mean() * 100, 1)
+            avg_listen = round(df["listening_time"].mean(), 1)
 
-            st.markdown(
-                f'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:1.5rem;">' +
-                f'<div style="background:#141414;border:1px solid #1DB95433;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Total Users</div><div style="color:#1DB954;font-size:1.8rem;font-weight:700;">{total:,}</div></div>' +
-                f'<div style="background:#141414;border:1px solid #ff333333;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Churned</div><div style="color:#ff4444;font-size:1.8rem;font-weight:700;">{churned:,}</div></div>' +
-                f'<div style="background:#141414;border:1px solid #ff950033;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Churn Rate</div><div style="color:#ff9500;font-size:1.8rem;font-weight:700;">{rate}%</div></div>' +
-                f'<div style="background:#141414;border:1px solid #25252555;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Avg Skip</div><div style="color:#fff;font-size:1.8rem;font-weight:700;">{skip}%</div></div>' +
-                f'<div style="background:#141414;border:1px solid #4a9eff33;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Avg Listen</div><div style="color:#4a9eff;font-size:1.8rem;font-weight:700;">{listen}h</div></div>' +
-                '</div>',
-                unsafe_allow_html=True)
+            # KPI cards using columns - no multiline fstring
+            k1,k2,k3,k4,k5 = st.columns(5)
+            with k1: st.markdown(f'<div style="background:#141414;border:1px solid #1DB95444;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Total Users</div><div style="color:#1DB954;font-size:2rem;font-weight:800;">{total:,}</div></div>', unsafe_allow_html=True)
+            with k2: st.markdown(f'<div style="background:#141414;border:1px solid #ff333344;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Churned</div><div style="color:#ff4444;font-size:2rem;font-weight:800;">{churned:,}</div></div>', unsafe_allow_html=True)
+            with k3: st.markdown(f'<div style="background:#141414;border:1px solid #ff950044;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Churn Rate</div><div style="color:#ff9500;font-size:2rem;font-weight:800;">{rate}%</div></div>', unsafe_allow_html=True)
+            with k4: st.markdown(f'<div style="background:#141414;border:1px solid #ffffff22;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Avg Skip</div><div style="color:#fff;font-size:2rem;font-weight:800;">{avg_skip}%</div></div>', unsafe_allow_html=True)
+            with k5: st.markdown(f'<div style="background:#141414;border:1px solid #4a9eff44;border-radius:12px;padding:1rem;text-align:center;"><div style="color:#888;font-size:0.7rem;text-transform:uppercase;">Avg Listen</div><div style="color:#4a9eff;font-size:2rem;font-weight:800;">{avg_listen}h</div></div>', unsafe_allow_html=True)
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown('<div class="section-title">🔴 Churn Distribution</div>', unsafe_allow_html=True)
-                fig = px.pie(pd.DataFrame({"Status":["Retained","Churned"],"Count":[total-churned,churned]}),
-                    values="Count",names="Status",hole=0.55,
-                    color_discrete_map={"Retained":"#1DB954","Churned":"#ff3333"})
-                fig.update_layout(**PLOTLY,height=280,
-                    annotations=[dict(text=f"{rate}%<br>Churn",x=0.5,y=0.5,font_size=13,font_color="#ccc",showarrow=False)])
-                fig.update_traces(textfont=dict(color="#fff",size=13),textinfo="label+percent")
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                st.markdown('<div class="section-title">🎵 Subscription Breakdown</div>', unsafe_allow_html=True)
-                sub = df["subscription_type"].value_counts().reset_index()
-                sub.columns = ["Plan","Count"]
-                fig = px.bar(sub,x="Plan",y="Count",color="Plan",
-                    color_discrete_map={"Free":"#ff9500","Premium":"#1DB954","Student":"#4a9eff","Family":"#aa44ff"})
-                fig.update_layout(**PLOTLY,height=280,showlegend=False)
-                fig.update_traces(texttemplate="%{y:,}",textposition="outside",textfont=dict(color="#fff"))
-                st.plotly_chart(fig, use_container_width=True)
+            st.markdown("---")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown('<div class="section-title">📊 Churn by Subscription</div>', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown('<div class="section-title">🔴 Churn vs Retained</div>', unsafe_allow_html=True)
+                fig1 = px.pie(pd.DataFrame({"Status":["Retained","Churned"],"Count":[kept,churned]}), values="Count", names="Status", hole=0.5, color_discrete_map={"Retained":"#1DB954","Churned":"#ff3333"})
+                fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111111", font=dict(color="#ccc"), height=300, margin=dict(t=30,b=20,l=20,r=20), annotations=[dict(text=f"{rate}%",x=0.5,y=0.5,font_size=18,font_color="#fff",showarrow=False)])
+                fig1.update_traces(textfont_color="#fff", textinfo="label+percent")
+                st.plotly_chart(fig1, use_container_width=True)
+            with c2:
+                st.markdown('<div class="section-title">🎵 Users by Subscription</div>', unsafe_allow_html=True)
+                sub_df = df["subscription_type"].value_counts().reset_index()
+                sub_df.columns = ["Plan","Count"]
+                fig2 = px.bar(sub_df, x="Plan", y="Count", color="Plan", color_discrete_map={"Free":"#ff9500","Premium":"#1DB954","Student":"#4a9eff","Family":"#aa44ff"}, text="Count")
+                fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111111", font=dict(color="#ccc"), height=300, showlegend=False, margin=dict(t=30,b=20,l=20,r=20))
+                fig2.update_traces(textposition="outside", textfont_color="#fff")
+                st.plotly_chart(fig2, use_container_width=True)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown('<div class="section-title">📊 Churn Rate by Subscription</div>', unsafe_allow_html=True)
                 cs = df.groupby("subscription_type")["is_churned"].mean().reset_index()
                 cs.columns = ["Plan","Rate"]
                 cs["Rate"] = (cs["Rate"]*100).round(1)
                 cs = cs.sort_values("Rate",ascending=False)
-                fig = go.Figure(go.Bar(x=cs["Plan"],y=cs["Rate"],
-                    marker=dict(color=cs["Rate"].tolist(),colorscale=[[0,"#1DB954"],[0.5,"#ff9500"],[1,"#ff3333"]],line=dict(width=0)),
-                    text=[f"{v:.1f}%" for v in cs["Rate"]],textposition="auto",textfont=dict(color="#fff")))
-                fig.update_layout(**PLOTLY,height=280,showlegend=False)
-                fig.update_yaxes(range=[0,100],gridcolor="#1e1e1e")
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                st.markdown('<div class="section-title">📱 Churn by Device</div>', unsafe_allow_html=True)
+                fig3 = px.bar(cs, x="Plan", y="Rate", color="Plan", text=[f"{v:.1f}%" for v in cs["Rate"]], color_discrete_sequence=["#ff3333","#ff9500","#1DB954","#4a9eff"])
+                fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111111", font=dict(color="#ccc"), height=300, showlegend=False, margin=dict(t=30,b=20,l=20,r=20), yaxis_range=[0,100])
+                fig3.update_traces(textposition="outside", textfont_color="#fff")
+                st.plotly_chart(fig3, use_container_width=True)
+            with c2:
+                st.markdown('<div class="section-title">📱 Churn Rate by Device</div>', unsafe_allow_html=True)
                 cd = df.groupby("device_type")["is_churned"].mean().reset_index()
                 cd.columns = ["Device","Rate"]
                 cd["Rate"] = (cd["Rate"]*100).round(1)
-                fig = go.Figure(go.Bar(x=cd["Device"],y=cd["Rate"],
-                    marker=dict(color=["#1DB954","#4a9eff","#ff9500"],line=dict(width=0)),
-                    text=[f"{v:.1f}%" for v in cd["Rate"]],textposition="auto",textfont=dict(color="#fff")))
-                fig.update_layout(**PLOTLY,height=280,showlegend=False)
-                fig.update_yaxes(range=[0,100],gridcolor="#1e1e1e")
-                st.plotly_chart(fig, use_container_width=True)
+                fig4 = px.bar(cd, x="Device", y="Rate", color="Device", text=[f"{v:.1f}%" for v in cd["Rate"]], color_discrete_sequence=["#1DB954","#4a9eff","#ff9500","#aa44ff"])
+                fig4.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111111", font=dict(color="#ccc"), height=300, showlegend=False, margin=dict(t=30,b=20,l=20,r=20), yaxis_range=[0,100])
+                fig4.update_traces(textposition="outside", textfont_color="#fff")
+                st.plotly_chart(fig4, use_container_width=True)
 
-            col1, col2 = st.columns(2)
-            with col1:
+            c1, c2 = st.columns(2)
+            with c1:
                 st.markdown('<div class="section-title">👥 Age Distribution</div>', unsafe_allow_html=True)
-                fig = go.Figure()
-                fig.add_trace(go.Histogram(x=df[df["is_churned"]==0]["age"],name="Retained",nbinsx=20,marker=dict(color="#1DB954",opacity=0.8,line=dict(width=0))))
-                fig.add_trace(go.Histogram(x=df[df["is_churned"]==1]["age"],name="Churned",nbinsx=20,marker=dict(color="#ff3333",opacity=0.8,line=dict(width=0))))
-                fig.update_layout(**PLOTLY,height=280,barmode="overlay",
-                    legend=dict(font=dict(color="#ccc"),bgcolor="rgba(0,0,0,0)"))
-                fig.update_xaxes(title_text="Age")
-                fig.update_yaxes(title_text="Count")
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                st.markdown('<div class="section-title">⏭️ Skip Rate vs Listen Time</div>', unsafe_allow_html=True)
-                samp = df.sample(min(500,len(df)),random_state=42)
-                fig = px.scatter(samp,x="skip_rate",y="listening_time",
-                    color=samp["is_churned"].map({0:"Retained",1:"Churned"}),
-                    color_discrete_map={"Retained":"#1DB954","Churned":"#ff3333"},opacity=0.6)
-                fig.update_layout(**PLOTLY,height=280,
-                    legend=dict(font=dict(color="#ccc"),bgcolor="rgba(0,0,0,0)"))
-                fig.update_xaxes(title_text="Skip Rate")
-                fig.update_yaxes(title_text="Listen Time (hrs)")
-                st.plotly_chart(fig, use_container_width=True)
+                fig5 = go.Figure()
+                fig5.add_trace(go.Histogram(x=df[df["is_churned"]==0]["age"], name="Retained", nbinsx=20, marker_color="#1DB954", opacity=0.8))
+                fig5.add_trace(go.Histogram(x=df[df["is_churned"]==1]["age"], name="Churned",  nbinsx=20, marker_color="#ff3333", opacity=0.8))
+                fig5.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111111", font=dict(color="#ccc"), height=300, barmode="overlay", legend=dict(font_color="#ccc",bgcolor="rgba(0,0,0,0)"), margin=dict(t=30,b=30,l=30,r=20))
+                st.plotly_chart(fig5, use_container_width=True)
+            with c2:
+                st.markdown('<div class="section-title">🌍 Top 10 Countries</div>', unsafe_allow_html=True)
+                tc = df["country"].value_counts().head(10).reset_index()
+                tc.columns = ["Country","Users"]
+                fig6 = px.bar(tc, y="Country", x="Users", orientation="h", color="Users", color_continuous_scale=["#0d2a18","#1DB954"], text="Users")
+                fig6.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111111", font=dict(color="#ccc"), height=300, showlegend=False, coloraxis_showscale=False, margin=dict(t=30,b=20,l=80,r=30))
+                fig6.update_traces(textposition="outside", textfont_color="#fff")
+                st.plotly_chart(fig6, use_container_width=True)
 
-            col1, col2 = st.columns(2)
-            with col1:
+            c1, c2 = st.columns(2)
+            with c1:
                 st.markdown('<div class="section-title">👤 Churn by Gender</div>', unsafe_allow_html=True)
                 cg = df.groupby("gender")["is_churned"].mean().reset_index()
                 cg.columns = ["Gender","Rate"]
                 cg["Rate"] = (cg["Rate"]*100).round(1)
-                fig = px.pie(cg,values="Rate",names="Gender",hole=0.4,
-                    color_discrete_sequence=["#1DB954","#4a9eff","#ff9500","#aa44ff"])
-                fig.update_layout(**PLOTLY,height=280)
-                fig.update_traces(textfont=dict(color="#fff",size=12),textinfo="label+percent")
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                st.markdown('<div class="section-title">🌍 Top 10 Countries</div>', unsafe_allow_html=True)
-                tc = df["country"].value_counts().head(10).reset_index()
-                tc.columns = ["Country","Users"]
-                fig = go.Figure(go.Bar(y=tc["Country"],x=tc["Users"],orientation="h",
-                    marker=dict(color=tc["Users"].tolist(),colorscale=[[0,"#0d2a18"],[1,"#1DB954"]],line=dict(width=0)),
-                    text=tc["Users"].tolist(),textposition="auto",textfont=dict(color="#fff")))
-                fig.update_layout(**PLOTLY,height=280,margin=dict(l=70,r=20,t=30,b=20),showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
+                fig7 = px.pie(cg, values="Rate", names="Gender", hole=0.4, color_discrete_sequence=["#1DB954","#4a9eff","#ff9500","#aa44ff"])
+                fig7.update_layout(paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#ccc"), height=300, margin=dict(t=30,b=20,l=20,r=20))
+                fig7.update_traces(textfont_color="#fff", textinfo="label+percent")
+                st.plotly_chart(fig7, use_container_width=True)
+            with c2:
+                st.markdown('<div class="section-title">⏭️ Skip Rate vs Listen Time</div>', unsafe_allow_html=True)
+                samp = df.sample(min(300,len(df)),random_state=42).copy()
+                samp["Status"] = samp["is_churned"].map({0:"Retained",1:"Churned"})
+                fig8 = px.scatter(samp, x="skip_rate", y="listening_time", color="Status", color_discrete_map={"Retained":"#1DB954","Churned":"#ff3333"}, opacity=0.6)
+                fig8.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111111", font=dict(color="#ccc"), height=300, legend=dict(font_color="#ccc",bgcolor="rgba(0,0,0,0)"), margin=dict(t=30,b=30,l=30,r=20))
+                st.plotly_chart(fig8, use_container_width=True)
 
     # ================================================================
     # CHAT
