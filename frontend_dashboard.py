@@ -962,9 +962,34 @@ def page_home(model, scaler, explainer, df):
                         with st.expander(f"📋 {p['name']}  ·  Priority {p['priority']}", expanded=True):
                             st.caption(p["description"])
                             c1, c2, c3 = st.columns(3)
-                            with c1: st.metric("Conv. Lift",   f"{p['estimated_impact']['conversion_rate_lift']:.0%}")
-                            with c2: st.metric("Retention",    f"{p['estimated_impact']['retention_improvement']:.0%}")
-                            with c3: st.metric("Rev. / User",  f"${p['estimated_impact']['revenue']:.2f}")
+                            st.markdown(f"""
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0.8rem 0;">
+                                <div style="background:#0d1f14;border:1px solid #1DB95444;border-radius:10px;
+                                            padding:0.8rem;text-align:center;">
+                                    <div style="color:#1DB954;font-size:0.7rem;font-weight:700;
+                                                text-transform:uppercase;letter-spacing:1px;">Conversion Lift</div>
+                                    <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
+                                        {p['estimated_impact']['conversion_rate_lift']:.0%}
+                                    </div>
+                                </div>
+                                <div style="background:#1a1000;border:1px solid #ff950044;border-radius:10px;
+                                            padding:0.8rem;text-align:center;">
+                                    <div style="color:#ff9500;font-size:0.7rem;font-weight:700;
+                                                text-transform:uppercase;letter-spacing:1px;">Retention Boost</div>
+                                    <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
+                                        {p['estimated_impact']['retention_improvement']:.0%}
+                                    </div>
+                                </div>
+                                <div style="background:#0a0a1f;border:1px solid #4a9eff44;border-radius:10px;
+                                            padding:0.8rem;text-align:center;">
+                                    <div style="color:#4a9eff;font-size:0.7rem;font-weight:700;
+                                                text-transform:uppercase;letter-spacing:1px;">Revenue/User</div>
+                                    <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin-top:0.3rem;">
+                                        ${p['estimated_impact']['revenue']:.2f}
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
                             for a in p["actions"]:
                                 st.markdown(f"**Step {a['step']}** `{a['channel']}` — {a['action']}")
 
@@ -1126,49 +1151,174 @@ def page_home(model, scaler, explainer, df):
 
     # ── TAB 3: ANALYTICS ─────────────────────────────────────────────────
     with tab3:
-        st.markdown('<div class="section-title">Platform Overview</div>', unsafe_allow_html=True)
-        c1, c2, c3, c4 = st.columns(4)
-        with c1: st.metric("Users Analysed",    "15,230", "+1,230")
-        with c2: st.metric("High Risk",         "3,245",  "-245")
-        with c3: st.metric("Playbooks Run",     "1,892",  "+143")
-        with c4: st.metric("Avg Churn Risk",    "42.3%",  "-2.1%")
+        if df is None:
+            st.markdown('<div style="background:#ff333318;border:1px solid #ff3333;border-radius:12px;padding:1rem 1.5rem;color:#ff5555;">⚠️ Dataset not found. Add spotify dataset.csv to project folder.</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="section-title">Platform Overview</div>', unsafe_allow_html=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
+            # ── Real KPI metrics from dataset ──
+            total_users    = len(df)
+            churned        = int(df["is_churned"].sum()) if "is_churned" in df.columns else 0
+            not_churned    = total_users - churned
+            churn_rate     = churned / total_users * 100 if total_users > 0 else 0
+            avg_skip       = df["skip_rate"].mean() * 100
+            avg_listen     = df["listening_time"].mean()
+            premium_count  = len(df[df["subscription_type"]=="Premium"]) if "subscription_type" in df.columns else 0
+            free_count     = len(df[df["subscription_type"]=="Free"]) if "subscription_type" in df.columns else 0
 
-        with col1:
-            st.markdown('<div class="section-title">Risk Distribution</div>', unsafe_allow_html=True)
-            fig = px.pie(
-                pd.DataFrame({"Segment":["Low Risk","Medium Risk","High Risk"],
-                              "Count":[8100,4885,3245]}),
-                values="Count", names="Segment", hole=0.55,
-                color_discrete_map={"Low Risk":"#1DB954","Medium Risk":"#ff9500","High Risk":"#ff3333"})
-            fig.update_layout(**PLOTLY, height=300,
-                annotations=[dict(text="Risk<br>Split",x=0.5,y=0.5,
-                                  font_size=13,font_color="#cccccc",showarrow=False)])
-            fig.update_traces(
-                textfont=dict(color="#ffffff", size=13),
-                textinfo="label+percent",
-                hovertemplate="<b>%{label}</b><br>Count: %{value}<br>%{percent}<extra></extra>"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            c1, c2, c3, c4, c5 = st.columns(5)
+            with c1: st.metric("Total Users",    f"{total_users:,}")
+            with c2: st.metric("Churned Users",  f"{churned:,}")
+            with c3: st.metric("Churn Rate",     f"{churn_rate:.1f}%")
+            with c4: st.metric("Avg Skip Rate",  f"{avg_skip:.1f}%")
+            with c5: st.metric("Avg Listen/day", f"{avg_listen:.1f} hrs")
 
-        with col2:
-            st.markdown('<div class="section-title">Playbook Success Rates</div>', unsafe_allow_html=True)
-            fig = go.Figure(data=[go.Bar(
-                x=["High-Risk\nConvert","Engagement\nBoost","Retention\nPlus","Win\nBack"],
-                y=[75, 62, 58, 48],
-                marker=dict(
-                    color=["#1DB954","#17a34a","#0f7a35","#0a5225"],
-                    line=dict(width=0)),
-                text=["75%","62%","58%","48%"],
-                textposition="auto",
-                textfont=dict(color="#fff", size=13),
-            )])
-            fig.update_layout(**PLOTLY, height=300,
-                              yaxis=dict(range=[0,100], gridcolor="#1e1e1e"),
-                              showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # ── Row 1: Churn Distribution + Subscription Breakdown ──
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown('<div class="section-title">🔴 Churn Distribution</div>', unsafe_allow_html=True)
+                fig = px.pie(
+                    pd.DataFrame({
+                        "Status": ["Retained","Churned"],
+                        "Count":  [not_churned, churned]
+                    }),
+                    values="Count", names="Status", hole=0.55,
+                    color_discrete_map={"Retained":"#1DB954","Churned":"#ff3333"})
+                fig.update_layout(**PLOTLY, height=280,
+                    annotations=[dict(text=f"{churn_rate:.0f}%<br>Churn",
+                                      x=0.5,y=0.5,font_size=13,
+                                      font_color="#cccccc",showarrow=False)])
+                fig.update_traces(textfont=dict(color="#fff",size=13),
+                                  textinfo="label+percent")
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.markdown('<div class="section-title">🎵 Subscription Breakdown</div>', unsafe_allow_html=True)
+                sub_counts = df["subscription_type"].value_counts().reset_index()
+                sub_counts.columns = ["Subscription","Count"]
+                fig = px.bar(sub_counts, x="Subscription", y="Count",
+                             color="Subscription",
+                             color_discrete_map={
+                                 "Free":"#ff9500","Premium":"#1DB954",
+                                 "Student":"#4a9eff","Family":"#aa44ff"})
+                fig.update_layout(**PLOTLY, height=280, showlegend=False)
+                fig.update_traces(texttemplate="%{y:,}",textposition="outside",
+                                  textfont=dict(color="#fff"))
+                st.plotly_chart(fig, use_container_width=True)
+
+            # ── Row 2: Churn by Subscription + Device breakdown ──
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown('<div class="section-title">📊 Churn Rate by Subscription</div>', unsafe_allow_html=True)
+                churn_by_sub = df.groupby("subscription_type")["is_churned"].mean().reset_index()
+                churn_by_sub.columns = ["Subscription","Churn Rate"]
+                churn_by_sub["Churn Rate"] = churn_by_sub["Churn Rate"] * 100
+                churn_by_sub = churn_by_sub.sort_values("Churn Rate", ascending=False)
+                fig = go.Figure(data=[go.Bar(
+                    x=churn_by_sub["Subscription"],
+                    y=churn_by_sub["Churn Rate"],
+                    marker=dict(
+                        color=churn_by_sub["Churn Rate"],
+                        colorscale=[[0,"#1DB954"],[0.5,"#ff9500"],[1,"#ff3333"]],
+                        line=dict(width=0)),
+                    text=[f"{v:.1f}%" for v in churn_by_sub["Churn Rate"]],
+                    textposition="auto", textfont=dict(color="#fff"),
+                )])
+                fig.update_layout(**PLOTLY, height=280, showlegend=False,
+                                  yaxis=dict(range=[0,100],gridcolor="#1e1e1e"))
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.markdown('<div class="section-title">📱 Churn Rate by Device</div>', unsafe_allow_html=True)
+                churn_by_dev = df.groupby("device_type")["is_churned"].mean().reset_index()
+                churn_by_dev.columns = ["Device","Churn Rate"]
+                churn_by_dev["Churn Rate"] = churn_by_dev["Churn Rate"] * 100
+                fig = go.Figure(data=[go.Bar(
+                    x=churn_by_dev["Device"],
+                    y=churn_by_dev["Churn Rate"],
+                    marker=dict(color=["#1DB954","#4a9eff","#ff9500"],line=dict(width=0)),
+                    text=[f"{v:.1f}%" for v in churn_by_dev["Churn Rate"]],
+                    textposition="auto", textfont=dict(color="#fff"),
+                )])
+                fig.update_layout(**PLOTLY, height=280, showlegend=False,
+                                  yaxis=dict(range=[0,100],gridcolor="#1e1e1e"))
+                st.plotly_chart(fig, use_container_width=True)
+
+            # ── Row 3: Age distribution + Skip rate vs churn ──
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown('<div class="section-title">👥 Age Distribution by Churn</div>', unsafe_allow_html=True)
+                fig = go.Figure()
+                fig.add_trace(go.Histogram(
+                    x=df[df["is_churned"]==0]["age"],
+                    name="Retained", nbinsx=20,
+                    marker=dict(color="#1DB954", opacity=0.8, line=dict(width=0))))
+                fig.add_trace(go.Histogram(
+                    x=df[df["is_churned"]==1]["age"],
+                    name="Churned",  nbinsx=20,
+                    marker=dict(color="#ff3333", opacity=0.8, line=dict(width=0))))
+                fig.update_layout(**PLOTLY, height=280, barmode="overlay",
+                                  legend=dict(font=dict(color="#ccc"),
+                                              bgcolor="rgba(0,0,0,0)"),
+                                  xaxis_title="Age", yaxis_title="Count")
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.markdown('<div class="section-title">⏭️ Skip Rate vs Listening Time</div>', unsafe_allow_html=True)
+                sample = df.sample(min(500, len(df)), random_state=42)
+                fig = px.scatter(
+                    sample, x="skip_rate", y="listening_time",
+                    color=sample["is_churned"].map({0:"Retained",1:"Churned"}),
+                    color_discrete_map={"Retained":"#1DB954","Churned":"#ff3333"},
+                    opacity=0.6)
+                fig.update_layout(**PLOTLY, height=280,
+                                  xaxis_title="Skip Rate",
+                                  yaxis_title="Listening Time (hrs)",
+                                  legend=dict(font=dict(color="#ccc"),
+                                              bgcolor="rgba(0,0,0,0)"))
+                st.plotly_chart(fig, use_container_width=True)
+
+            # ── Row 4: Gender breakdown + Country top 10 ──
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown('<div class="section-title">👤 Churn by Gender</div>', unsafe_allow_html=True)
+                churn_by_gender = df.groupby("gender")["is_churned"].mean().reset_index()
+                churn_by_gender.columns = ["Gender","Churn Rate"]
+                churn_by_gender["Churn Rate"] = churn_by_gender["Churn Rate"] * 100
+                fig = px.pie(churn_by_gender, values="Churn Rate", names="Gender",
+                             hole=0.4,
+                             color_discrete_sequence=["#1DB954","#4a9eff","#ff9500","#aa44ff"])
+                fig.update_layout(**PLOTLY, height=280)
+                fig.update_traces(textfont=dict(color="#fff",size=12),
+                                  textinfo="label+percent")
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.markdown('<div class="section-title">🌍 Top 10 Countries by Users</div>', unsafe_allow_html=True)
+                if "country" in df.columns:
+                    top_countries = df["country"].value_counts().head(10).reset_index()
+                    top_countries.columns = ["Country","Users"]
+                    fig = go.Figure(data=[go.Bar(
+                        y=top_countries["Country"],
+                        x=top_countries["Users"],
+                        orientation="h",
+                        marker=dict(
+                            color=top_countries["Users"],
+                            colorscale=[[0,"#0d2a18"],[1,"#1DB954"]],
+                            line=dict(width=0)),
+                        text=top_countries["Users"],
+                        textposition="auto",textfont=dict(color="#fff"),
+                    )])
+                    fig.update_layout(**PLOTLY, height=280,
+                                      margin=dict(l=60,r=20,t=30,b=20),
+                                      showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
 
     # ── CHAT ──────────────────────────────────────────────────────────────
     st.markdown("---")
