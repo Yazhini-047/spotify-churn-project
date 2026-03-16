@@ -370,8 +370,11 @@ async def lifespan(app: FastAPI):
     try:
         # Load model (replace with your actual model path)
         logger.info("Loading trained model...")
+        # If you have a real model, load it here, e.g.:
         # app.state.app.model = joblib.load('model.pkl')
-        logger.info("✓ Model loaded")
+        # For local testing with the placeholder prediction logic, set a dummy model flag
+        app.state.app.model = True
+        logger.info("✓ Model loaded (placeholder mode)")
         
         # Note: Load explainability engine and playbook engine
         # app.state.app.explainer = ChurnExplainabilityEngine(...)
@@ -526,10 +529,13 @@ async def predict(
         logger.info(f"Prediction for {request.user_id}: {churn_probability:.2%}")
         return response
         
+    except HTTPException:
+        # Preserve HTTPExceptions (e.g., 503 Model not loaded)
+        raise
     except Exception as e:
         logger.error(f"Prediction error: {e}")
         app_state.metrics["errors_last_24h"] += 1
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @app.post(

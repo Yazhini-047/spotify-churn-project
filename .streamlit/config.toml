@@ -24,6 +24,3 @@ enableXsrfProtection = true
 
 [browser]
 gatherUsageStats = false
-
-[logger]
-level = "info"  # debug, info, warning, error

@@ -316,11 +316,10 @@ def page_home():
     st.markdown("---")
     
     # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3 = st.tabs([
         "🔍 Single Prediction",
         "👥 Customer Profiles",
-        "📊 Analytics",
-        "💬 Chat Assistant"
+        "📊 Analytics"
     ])
     
     # =====================================================================
@@ -577,73 +576,66 @@ def page_home():
             st.plotly_chart(fig, use_container_width=True)
     
     # =====================================================================
-    # TAB 4: CHAT ASSISTANT
+    # CHAT ASSISTANT (OUTSIDE TABS)
     # =====================================================================
     
-    with tab4:
-        st.subheader("💬 Chat Assistant")
+    st.markdown("---")
+    st.subheader("💬 Chat Assistant")
+    
+    # Display chat history
+    chat_container = st.container()
+    
+    with chat_container:
+        for message in st.session_state.chat_messages:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
+    
+    # Chat input (MUST be outside tabs)
+    user_input = st.chat_input("Ask about churn risk or recommendations...")
+    
+    if user_input:
+        # Add user message to history
+        st.session_state.chat_messages.append({
+            "role": "user",
+            "content": user_input
+        })
         
-        # Initialize chat session
-        if "chat_session_id" not in st.session_state:
-            st.session_state.chat_session_id = f"session_{int(time.time())}"
+        # Get response from API
+        with st.spinner("Chatbot thinking..."):
+            api = APIClient()
+            context = {
+                "churn_probability": st.session_state.last_prediction.get(
+                    'churn_probability', 0.5
+                ) if st.session_state.last_prediction else 0.5
+            }
+            
+            response = api.chat(
+                "user_001",
+                st.session_state.chat_session_id,
+                user_input,
+                context
+            )
         
-        if "chat_messages" not in st.session_state:
-            st.session_state.chat_messages = []
-        
-        # Display chat history
-        chat_container = st.container()
-        
-        with chat_container:
-            for message in st.session_state.chat_messages:
-                with st.chat_message(message["role"]):
-                    st.write(message["content"])
-        
-        # Chat input
-        user_input = st.chat_input("Ask about churn risk or recommendations...")
-        
-        if user_input:
-            # Add user message to history
+        if response:
+            assistant_msg = response['message']['content']
             st.session_state.chat_messages.append({
-                "role": "user",
-                "content": user_input
+                "role": "assistant",
+                "content": assistant_msg
             })
             
-            # Get response from API
-            with st.spinner("Chatbot thinking..."):
-                api = APIClient()
-                context = {
-                    "churn_probability": st.session_state.last_prediction.get(
-                        'churn_probability', 0.5
-                    ) if "last_prediction" in st.session_state else 0.5
-                }
-                
-                response = api.chat(
-                    "user_001",
-                    st.session_state.chat_session_id,
-                    user_input,
-                    context
-                )
+            # Show suggested actions
+            if response.get('suggested_actions'):
+                st.info("**Suggested Actions:**")
+                for action in response['suggested_actions']:
+                    st.write(f"• {action.get('label', action)}")
             
-            if response:
-                assistant_msg = response['message']['content']
-                st.session_state.chat_messages.append({
-                    "role": "assistant",
-                    "content": assistant_msg
-                })
-                
-                # Show suggested actions
-                if response.get('suggested_actions'):
-                    st.info("**Suggested Actions:**")
-                    for action in response['suggested_actions']:
-                        st.write(f"• {action.get('label', action)}")
-                
-                # Show offers
-                if response.get('offers'):
-                    st.success("**Available Offers:**")
-                    for offer in response['offers']:
-                        st.write(f"✨ {offer.get('label', offer)}")
-                
-                st.rerun()
+            # Show offers
+            if response.get('offers'):
+                st.success("**Available Offers:**")
+                for offer in response['offers']:
+                    st.write(f"✨ {offer.get('label', offer)}")
+            
+            st.success("✅ Message sent! Scroll up to see the response.")
 
 
 # ============================================================================
@@ -739,6 +731,14 @@ def main():
     # Initialize session state
     if "page" not in st.session_state:
         st.session_state.page = "home"
+    if "last_prediction" not in st.session_state:
+        st.session_state.last_prediction = {}
+    if "show_profile" not in st.session_state:
+        st.session_state.show_profile = False
+    if "chat_session_id" not in st.session_state:
+        st.session_state.chat_session_id = f"session_{int(time.time())}"
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
     
     # Sidebar
     with st.sidebar:
