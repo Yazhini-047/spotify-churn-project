@@ -1103,48 +1103,54 @@ def page_home(model, scaler, explainer, df):
                 fig.update_traces(textposition="outside", textfont_color="#fff")
                 st.plotly_chart(fig, use_container_width=True)
 
-    # CHAT - Floating chat icon
-    msgs_html = ""
-    for msg in st.session_state.chat_messages[-12:]:
+    # CHAT - Inline section
+    st.markdown("---")
+    st.markdown('<div class="section-title">💬 AI Chat Assistant</div>', unsafe_allow_html=True)
+
+    # Show message history
+    for msg in st.session_state.chat_messages[-10:]:
         if msg["role"] == "user":
-            msgs_html += '<div style="display:flex;justify-content:flex-end;margin:6px 0;"><div style="background:#1DB954;color:#000;border-radius:18px 18px 4px 18px;padding:8px 14px;max-width:80%;font-size:0.88rem;font-weight:500;">' + msg["content"] + '</div></div>'
+            st.markdown(
+                '<div style="display:flex;justify-content:flex-end;margin:6px 0;">'
+                '<div style="background:#1DB954;color:#000;border-radius:18px 18px 4px 18px;'
+                'padding:10px 16px;max-width:75%;font-size:0.9rem;font-weight:500;">'
+                + msg["content"] + '</div></div>',
+                unsafe_allow_html=True)
         else:
-            msgs_html += '<div style="display:flex;justify-content:flex-start;margin:6px 0;"><div style="background:#222;color:#e0e0e0;border-radius:18px 18px 18px 4px;border:1px solid #333;padding:8px 14px;max-width:80%;font-size:0.88rem;">' + msg["content"] + '</div></div>'
+            st.markdown(
+                '<div style="display:flex;justify-content:flex-start;margin:6px 0;">'
+                '<div style="background:#161616;color:#e0e0e0;border-radius:18px 18px 18px 4px;'
+                'border:1px solid #2a2a2a;padding:10px 16px;max-width:75%;font-size:0.9rem;">'
+                + msg["content"] + '</div></div>',
+                unsafe_allow_html=True)
 
-    if not msgs_html:
-        msgs_html = '<div style="text-align:center;color:#555;padding:30px 10px;font-size:0.85rem;">👋 Hi! Ask me about churn risk, offers, or recommendations.</div>'
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    css = "<style>"
-    css += "#spx-fab{position:fixed;bottom:24px;right:24px;z-index:99999;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1DB954,#158a3e);border:none;cursor:pointer;box-shadow:0 4px 20px rgba(29,185,84,0.5);font-size:22px;color:white;transition:transform 0.2s;}"
-    css += "#spx-fab:hover{transform:scale(1.12);box-shadow:0 6px 28px rgba(29,185,84,0.7);}"
-    css += "#spx-panel{display:none;position:fixed;bottom:90px;right:24px;width:320px;height:420px;background:#111;border:1px solid #1DB95455;border-radius:16px;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.6);z-index:99999;overflow:hidden;}"
-    css += "#spx-panel.open{display:flex !important;}"
-    css += "#spx-header{background:linear-gradient(135deg,#1DB954,#158a3e);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}"
-    css += "#spx-title{color:#fff;font-weight:700;font-size:0.9rem;}"
-    css += "#spx-close{color:#fff;background:none;border:none;font-size:18px;cursor:pointer;line-height:1;padding:0;}"
-    css += "#spx-msgs{flex:1;overflow-y:auto;padding:12px;scrollbar-width:thin;scrollbar-color:#1DB954 #111;}"
-    css += "#spx-msgs::-webkit-scrollbar{width:4px;}"
-    css += "#spx-msgs::-webkit-scrollbar-thumb{background:#1DB954;border-radius:2px;}"
-    css += "</style>"
+    # Input row using columns - no st.chat_input so no white bar
+    col_inp, col_btn = st.columns([6, 1])
+    with col_inp:
+        user_input = st.text_input(
+            "chat_input_hidden",
+            placeholder="Ask about churn risk or recommendations...",
+            label_visibility="collapsed",
+            key="chat_text_input")
+    with col_btn:
+        send_clicked = st.button("Send", use_container_width=True, key="chat_send_btn")
 
-    btn = '<button id="spx-fab" onclick="var p=document.getElementById(\'spx-panel\');p.classList.toggle(\'open\');">💬</button>'
-    panel = '<div id="spx-panel"><div id="spx-header"><span id="spx-title">🎵 Churn Assistant</span><button id="spx-close" onclick="document.getElementById(\'spx-panel\').classList.remove(\'open\')">✕</button></div><div id="spx-msgs">' + msgs_html + '</div></div>'
-
-    st.markdown(css + btn + panel, unsafe_allow_html=True)
-
-    user_input = st.chat_input("Message...")
-    if user_input:
-        st.session_state.chat_messages.append({"role": "user", "content": user_input})
-        context = {}
-        if st.session_state.last_prediction:
-            context = {
-                "churn_probability": st.session_state.last_prediction.get("churn_probability", 0.5),
-                "risk_segment":      st.session_state.last_prediction.get("risk_segment", "medium_risk"),
-            }
-        with st.spinner(""):
-            reply = chat_response(user_input, context)
-        st.session_state.chat_messages.append({"role": "assistant", "content": reply})
-        st.rerun()
+    if (send_clicked or user_input) and st.session_state.get("chat_text_input", "").strip():
+        msg_text = st.session_state.chat_text_input.strip()
+        if msg_text and (send_clicked or msg_text != st.session_state.get("last_chat_sent","")):
+            st.session_state.last_chat_sent = msg_text
+            st.session_state.chat_messages.append({"role": "user", "content": msg_text})
+            context = {}
+            if st.session_state.last_prediction:
+                context = {
+                    "churn_probability": st.session_state.last_prediction.get("churn_probability", 0.5),
+                    "risk_segment":      st.session_state.last_prediction.get("risk_segment", "medium_risk"),
+                }
+            reply = chat_response(msg_text, context)
+            st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+            st.rerun()
 
 def page_help():
     st.markdown("""
@@ -1243,6 +1249,7 @@ def main():
     if "show_profile"    not in st.session_state: st.session_state.show_profile = False
     if "chat_session_id" not in st.session_state: st.session_state.chat_session_id = f"s_{int(time.time())}"
     if "chat_messages"   not in st.session_state: st.session_state.chat_messages = []
+    if "last_chat_sent" not in st.session_state: st.session_state.last_chat_sent = ""
 
     model     = load_model()
     scaler    = load_scaler()
