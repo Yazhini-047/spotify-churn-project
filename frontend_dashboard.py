@@ -893,14 +893,23 @@ def page_home(model, scaler, explainer, df):
                     st.markdown('<div class="section-title">🎬 Playbook Recommendations</div>', unsafe_allow_html=True)
                     if st.button("Get Playbook Recommendations", use_container_width=True, key="playbook_btn"):
                         pb = get_playbooks(pred)
-                        st.markdown(f"**Best Match:** `{pb['best_playbook_id']}`")
+                        st.markdown(f"**🎯 Best Match:** `{pb['best_playbook_id']}`")
                         for p in pb["recommended_playbooks"]:
-                            with st.expander(f"📋 {p['name']}  ·  Priority {p['priority']}", expanded=True):
-                                st.caption(p["description"])
-                                st.markdown(f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0.8rem 0;"><div style="background:#0d1f14;border:1px solid #1DB95444;border-radius:10px;padding:0.8rem;text-align:center;"><div style="color:#1DB954;font-size:0.7rem;font-weight:700;text-transform:uppercase;">Conversion Lift</div><div style="color:#fff;font-size:1.4rem;font-weight:700;">{p["estimated_impact"]["conversion_rate_lift"]:.0%}</div></div><div style="background:#1a1000;border:1px solid #ff950044;border-radius:10px;padding:0.8rem;text-align:center;"><div style="color:#ff9500;font-size:0.7rem;font-weight:700;text-transform:uppercase;">Retention Boost</div><div style="color:#fff;font-size:1.4rem;font-weight:700;">{p["estimated_impact"]["retention_improvement"]:.0%}</div></div><div style="background:#0a0a1f;border:1px solid #4a9eff44;border-radius:10px;padding:0.8rem;text-align:center;"><div style="color:#4a9eff;font-size:0.7rem;font-weight:700;text-transform:uppercase;">Revenue/User</div><div style="color:#fff;font-size:1.4rem;font-weight:700;">${p["estimated_impact"]["revenue"]:.2f}</div></div></div>', unsafe_allow_html=True)
+                            with st.expander(f"📋 {p['name']}  —  Priority {p['priority']}", expanded=True):
+                                st.write(f"**Description:** {p['description']}")
+                                col_a, col_b, col_c = st.columns(3)
+                                with col_a:
+                                    st.write(f"**Conversion Lift**")
+                                    st.write(f"{p['estimated_impact']['conversion_rate_lift']:.0%}")
+                                with col_b:
+                                    st.write(f"**Retention Boost**")
+                                    st.write(f"{p['estimated_impact']['retention_improvement']:.0%}")
+                                with col_c:
+                                    st.write(f"**Revenue / User**")
+                                    st.write(f"${p['estimated_impact']['revenue']:.2f}")
+                                st.write("**Action Steps:**")
                                 for a in p["actions"]:
-                                    st.markdown(f"**Step {a['step']}** `{a['channel']}` — {a['action']}")
-
+                                    st.write(f"  • Step {a['step']} [{a['channel']}]: {a['action']}")
     # ================================================================
     # TAB 2 - CUSTOMER PROFILE
     # ================================================================
