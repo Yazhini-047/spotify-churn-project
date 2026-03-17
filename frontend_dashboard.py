@@ -291,9 +291,27 @@ div:has(> code)                                  { display:none!important; }
     margin-bottom: 0.6rem !important;
 }
 [data-testid="stChatInputContainer"] {
-    background: #141414 !important;
-    border: 1px solid #252525 !important;
+    background: #1a1a1a !important;
+    border: 1px solid #1DB95455 !important;
     border-radius: 50px !important;
+    padding: 4px 8px !important;
+}
+[data-testid="stChatInputContainer"] textarea {
+    background: transparent !important;
+    color: #e0e0e0 !important;
+}
+/* Fix white bottom bar */
+.stChatFloatingInputContainer {
+    background: #0a0a0a !important;
+    border-top: 1px solid #1e1e1e !important;
+    padding: 1rem 2rem !important;
+}
+section[data-testid="stBottom"] {
+    background: #0a0a0a !important;
+    border-top: 1px solid #1e1e1e !important;
+}
+section[data-testid="stBottom"] > div {
+    background: #0a0a0a !important;
 }
 
 /* Risk badges */
@@ -946,15 +964,7 @@ def page_home(model, scaler, explainer, df):
                                "Value":st.column_config.TextColumn("Value",width="medium"),
                                "Category":st.column_config.TextColumn("Category",width="small")})
 
-    # ================================================================
-    # TAB 3 - ANALYTICS
-    # ================================================================
-    # ================================================================
-    # TAB 3 - ANALYTICS
-    # ================================================================
-    # ================================================================
-    # TAB 3 - ANALYTICS
-    # ================================================================
+    # TAB 3 - ANALYTICS (v1773716604)
     with tab3:
         if df is None:
             st.markdown("**Dataset not loaded**")
@@ -1083,29 +1093,36 @@ def page_home(model, scaler, explainer, df):
                 fig.update_traces(textposition="outside", textfont_color="#fff")
                 st.plotly_chart(fig, use_container_width=True)
 
-    # ================================================================
     # CHAT
-    # ================================================================
     st.markdown("---")
     st.markdown('<div class="section-title">💬 AI Chat Assistant</div>', unsafe_allow_html=True)
-    with st.container():
-        for message in st.session_state.chat_messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-    user_input = st.chat_input("Ask about churn risk, offers, or plans...")
+
+    for msg in st.session_state.chat_messages[-10:]:
+        is_bot  = msg["role"] == "assistant"
+        bg      = "#1a2a1a" if is_bot else "#1a1a2a"
+        border  = "#1DB95455" if is_bot else "#4a9eff55"
+        label   = "🎵 Assistant" if is_bot else "👤 You"
+        st.markdown(
+            '<div style="background:' + bg + ';border:1px solid ' + border +
+            ';border-radius:12px;padding:0.8rem 1rem;margin:0.4rem 0;">' +
+            '<div style="color:#888;font-size:0.72rem;font-weight:600;margin-bottom:4px;">' + label + '</div>' +
+            '<div style="color:#e0e0e0;">' + msg["content"] + '</div>' +
+            '</div>',
+            unsafe_allow_html=True)
+
+    user_input = st.chat_input("Ask about churn risk or recommendations...")
     if user_input:
-        st.session_state.chat_messages.append({"role":"user","content":user_input})
+        st.session_state.chat_messages.append({"role": "user", "content": user_input})
         context = {}
         if st.session_state.last_prediction:
             context = {
-                "churn_probability": st.session_state.last_prediction.get("churn_probability",0.5),
-                "risk_segment": st.session_state.last_prediction.get("risk_segment","medium_risk"),
+                "churn_probability": st.session_state.last_prediction.get("churn_probability", 0.5),
+                "risk_segment":      st.session_state.last_prediction.get("risk_segment", "medium_risk"),
             }
         with st.spinner("Thinking..."):
             reply = chat_response(user_input, context)
-        st.session_state.chat_messages.append({"role":"assistant","content":reply})
-        if reply:
-            st.rerun()
+        st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+        st.rerun()
 
 def page_help():
     st.markdown("""
