@@ -345,6 +345,16 @@ hr { border-color: #1e1e1e !important; margin: 1.5rem 0 !important; }
 ::-webkit-scrollbar-track { background: #111; }
 ::-webkit-scrollbar-thumb { background: #1DB954; border-radius: 3px; }
 
+/* Nuclear fix for white chat bar */
+section[data-testid="stBottom"]                       { background: #0a0a0a !important; }
+section[data-testid="stBottom"] > div                 { background: #0a0a0a !important; }
+section[data-testid="stBottom"] > div > div           { background: #0a0a0a !important; }
+.stChatFloatingInputContainer                         { background: #0a0a0a !important; border-top: 1px solid #1e1e1e !important; }
+.stChatFloatingInputContainer > div                   { background: #0a0a0a !important; }
+[data-testid="stChatInputContainer"]                  { background: #161616 !important; border: 1px solid #1DB95466 !important; border-radius: 50px !important; }
+[data-testid="stChatInputContainer"] textarea         { background: transparent !important; color: #e0e0e0 !important; }
+[data-testid="stChatInputContainer"] textarea::placeholder { color: #555 !important; }
+
 /* Hide streamlit chrome */
 #MainMenu { visibility: hidden; }
 footer    { visibility: hidden; }
@@ -1093,24 +1103,36 @@ def page_home(model, scaler, explainer, df):
                 fig.update_traces(textposition="outside", textfont_color="#fff")
                 st.plotly_chart(fig, use_container_width=True)
 
-    # CHAT
-    st.markdown("---")
-    st.markdown('<div class="section-title">💬 AI Chat Assistant</div>', unsafe_allow_html=True)
+    # CHAT - Floating chat icon
+    msgs_html = ""
+    for msg in st.session_state.chat_messages[-12:]:
+        if msg["role"] == "user":
+            msgs_html += '<div style="display:flex;justify-content:flex-end;margin:6px 0;"><div style="background:#1DB954;color:#000;border-radius:18px 18px 4px 18px;padding:8px 14px;max-width:80%;font-size:0.88rem;font-weight:500;">' + msg["content"] + '</div></div>'
+        else:
+            msgs_html += '<div style="display:flex;justify-content:flex-start;margin:6px 0;"><div style="background:#222;color:#e0e0e0;border-radius:18px 18px 18px 4px;border:1px solid #333;padding:8px 14px;max-width:80%;font-size:0.88rem;">' + msg["content"] + '</div></div>'
 
-    for msg in st.session_state.chat_messages[-10:]:
-        is_bot  = msg["role"] == "assistant"
-        bg      = "#1a2a1a" if is_bot else "#1a1a2a"
-        border  = "#1DB95455" if is_bot else "#4a9eff55"
-        label   = "🎵 Assistant" if is_bot else "👤 You"
-        st.markdown(
-            '<div style="background:' + bg + ';border:1px solid ' + border +
-            ';border-radius:12px;padding:0.8rem 1rem;margin:0.4rem 0;">' +
-            '<div style="color:#888;font-size:0.72rem;font-weight:600;margin-bottom:4px;">' + label + '</div>' +
-            '<div style="color:#e0e0e0;">' + msg["content"] + '</div>' +
-            '</div>',
-            unsafe_allow_html=True)
+    if not msgs_html:
+        msgs_html = '<div style="text-align:center;color:#555;padding:30px 10px;font-size:0.85rem;">👋 Hi! Ask me about churn risk, offers, or recommendations.</div>'
 
-    user_input = st.chat_input("Ask about churn risk or recommendations...")
+    css = "<style>"
+    css += "#spx-fab{position:fixed;bottom:24px;right:24px;z-index:99999;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1DB954,#158a3e);border:none;cursor:pointer;box-shadow:0 4px 20px rgba(29,185,84,0.5);font-size:22px;color:white;transition:transform 0.2s;}"
+    css += "#spx-fab:hover{transform:scale(1.12);box-shadow:0 6px 28px rgba(29,185,84,0.7);}"
+    css += "#spx-panel{display:none;position:fixed;bottom:90px;right:24px;width:320px;height:420px;background:#111;border:1px solid #1DB95455;border-radius:16px;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.6);z-index:99999;overflow:hidden;}"
+    css += "#spx-panel.open{display:flex !important;}"
+    css += "#spx-header{background:linear-gradient(135deg,#1DB954,#158a3e);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}"
+    css += "#spx-title{color:#fff;font-weight:700;font-size:0.9rem;}"
+    css += "#spx-close{color:#fff;background:none;border:none;font-size:18px;cursor:pointer;line-height:1;padding:0;}"
+    css += "#spx-msgs{flex:1;overflow-y:auto;padding:12px;scrollbar-width:thin;scrollbar-color:#1DB954 #111;}"
+    css += "#spx-msgs::-webkit-scrollbar{width:4px;}"
+    css += "#spx-msgs::-webkit-scrollbar-thumb{background:#1DB954;border-radius:2px;}"
+    css += "</style>"
+
+    btn = '<button id="spx-fab" onclick="var p=document.getElementById(\'spx-panel\');p.classList.toggle(\'open\');">💬</button>'
+    panel = '<div id="spx-panel"><div id="spx-header"><span id="spx-title">🎵 Churn Assistant</span><button id="spx-close" onclick="document.getElementById(\'spx-panel\').classList.remove(\'open\')">✕</button></div><div id="spx-msgs">' + msgs_html + '</div></div>'
+
+    st.markdown(css + btn + panel, unsafe_allow_html=True)
+
+    user_input = st.chat_input("Message...")
     if user_input:
         st.session_state.chat_messages.append({"role": "user", "content": user_input})
         context = {}
@@ -1119,7 +1141,7 @@ def page_home(model, scaler, explainer, df):
                 "churn_probability": st.session_state.last_prediction.get("churn_probability", 0.5),
                 "risk_segment":      st.session_state.last_prediction.get("risk_segment", "medium_risk"),
             }
-        with st.spinner("Thinking..."):
+        with st.spinner(""):
             reply = chat_response(user_input, context)
         st.session_state.chat_messages.append({"role": "assistant", "content": reply})
         st.rerun()
