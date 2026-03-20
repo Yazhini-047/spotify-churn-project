@@ -355,7 +355,24 @@ section[data-testid="stBottom"] > div > div           { background: #0a0a0a !imp
 [data-testid="stChatInputContainer"] textarea         { background: transparent !important; color: #e0e0e0 !important; }
 [data-testid="stChatInputContainer"] textarea::placeholder { color: #555 !important; }
 
-/* Hide streamlit chrome */
+
+    /* Sidebar toggle CSS - shows hamburger when sidebar collapsed */
+    [data-testid="stSidebarCollapsedControl"] button {
+        background: #1DB954 !important;
+        color: #000 !important;
+        border-radius: 8px !important;
+        font-size: 20px !important;
+        width: 40px !important;
+        height: 40px !important;
+        border: none !important;
+        box-shadow: 0 2px 10px rgba(29,185,84,0.4) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] button:hover {
+        background: #22d160 !important;
+        transform: scale(1.1) !important;
+    }
+
+    /* Hide streamlit chrome */
 #MainMenu { visibility: hidden; }
 footer    { visibility: hidden; }
 header    { visibility: hidden; }
@@ -1162,94 +1179,85 @@ def page_home(model, scaler, explainer, df):
             st.rerun()
 
 def page_help():
-    st.markdown("""
-    <div class="hero-header">
-        <div class="hero-title">📚 Help & Documentation</div>
-        <div class="hero-subtitle">Everything you need to know about Spotify Churn Guard</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="hero-header"><div class="hero-title">📚 Help &amp; Documentation</div><div class="hero-subtitle">Everything you need to use Spotify Churn Guard effectively</div></div>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["Getting Started", "Model & Features", "FAQ"])
+    tab1, tab2, tab3 = st.tabs(["🚀 Getting Started", "🤖 Model & Features", "❓ FAQ"])
 
     with tab1:
-        st.markdown("""
-### How to Use This App
-
-**1. Run a Prediction**
-Fill in the user feature inputs on the left panel of the Predict tab.
-Click **Run Churn Prediction** — the gauge chart shows the risk score instantly.
-
-**2. View SHAP Explanation**
-Click **Generate SHAP Explanation** to see a colour-coded bar chart showing
-which features increase (red) or decrease (green) churn risk.
-
-**3. Get Playbook Recommendations**
-Click **Get Playbook Recommendations** to see ranked intervention strategies
-with conversion lift, retention improvement, and revenue impact estimates.
-
-**4. Chat Assistant**
-Ask the AI assistant questions about churn risk, Spotify plans, or offers.
-It automatically uses your latest prediction as context.
-
-**5. Analytics Tab**
-View platform-wide churn metrics, risk distribution, and playbook success rates.
-        """)
+        st.markdown("### 🚀 Getting Started")
+        st.markdown("---")
+        st.markdown("#### 1️⃣ Predict & Explain Tab")
+        st.markdown("Select any customer from the dropdown. The app instantly runs a churn prediction using the trained ML model. You will see the **Churn Risk %**, **Confidence score**, and a **Risk Level badge** (Low / Medium / High).")
+        st.markdown("- 🔮 **Run Prediction** — Select a customer ID and click Predict")
+        st.markdown("- 📖 **Generate SHAP Explanation** — See which features drive churn risk up (red) or down (green)")
+        st.markdown("- 🎬 **Get Playbook Recommendations** — Get step-by-step intervention plans to retain the customer")
+        st.markdown("---")
+        st.markdown("#### 2️⃣ Customer Profile Tab")
+        st.markdown("Select any of the 8,000 real customers. View their full details — age, gender, country, subscription type, device, listening habits — with 3 activity charts and a complete feature table.")
+        st.markdown("---")
+        st.markdown("#### 3️⃣ Analytics Tab")
+        st.markdown("Platform-wide insights from all 8,000 users: 5 key metrics and 6 charts covering churn distribution, subscription breakdown, churn by device, age distribution, and top 10 countries.")
+        st.markdown("---")
+        st.markdown("#### 4️⃣ Chat Assistant")
+        st.markdown("Scroll to the bottom of the page. Type your question and click **Send**. The assistant uses your latest prediction as context. Try asking:")
+        st.markdown("- *Why might this user churn?*")
+        st.markdown("- *What offers can we give them?*")
+        st.markdown("- *Explain the SHAP values*")
+        st.markdown("- *What is the difference between Premium and Student plans?*")
 
     with tab2:
-        st.markdown("""
-### Model Details
-
-| Item | Detail |
-|---|---|
-| Primary model | `spotify_churn_model.pkl` |
-| Type | HistGradientBoostingClassifier |
-| Explainability | SHAP TreeExplainer |
-| Scaler | StandardScaler (`scaler.pkl`) |
-| Features | 15 columns (see below) |
-
-### The 15 Features
-| Feature | Description |
-|---|---|
-| age | User age |
-| listening_time | Hours listened per day |
-| songs_played_per_day | Daily song count |
-| skip_rate | Fraction of songs skipped |
-| ads_listened_per_week | Weekly ad exposure |
-| offline_listening | Offline hours per day |
-| ad_stress | Derived: ads × skip_rate |
-| skip_intensity | Derived: skip_rate × songs/day |
-| gender_Male / gender_Other | One-hot encoded gender |
-| subscription_type_* | One-hot: Free / Premium / Student |
-| device_type_Mobile / Web | One-hot encoded device |
-        """)
+        st.markdown("### 🤖 Model & Technical Details")
+        st.markdown("---")
+        st.markdown("#### Model Information")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("| Property | Value |\n|---|---|\n| **Model File** | `spotify_churn_model.pkl` |\n| **Algorithm** | HistGradientBoostingClassifier |\n| **Training Data** | 8,000 Spotify users |\n| **Target Variable** | `is_churned` (0=Stay, 1=Churn) |\n| **Explainability** | SHAP TreeExplainer |\n| **Scaler** | StandardScaler (`scaler.pkl`) |\n| **Total Features** | 15 columns |\n| **Deployment** | Streamlit Cloud — no backend |")
+        with col2:
+            st.markdown("#### How Predictions Work")
+            st.markdown("1. Customer features are loaded from the dataset")
+            st.markdown("2. Features are encoded and scaled using the saved scaler")
+            st.markdown("3. The trained model predicts churn probability (0–100%)")
+            st.markdown("4. SHAP values explain which features drove the prediction")
+            st.markdown("5. Playbooks are recommended based on the risk segment")
+            st.markdown("6. Chat assistant uses the prediction as context")
+        st.markdown("---")
+        st.markdown("#### 📋 The 15 Input Features")
+        st.markdown("| # | Feature | Type | Description | Churn Impact |\n|---|---|---|---|---|\n| 1 | `age` | Numeric | User age in years | Younger users churn more |\n| 2 | `listening_time` | Numeric | Hours of music per day | Low = higher churn risk |\n| 3 | `songs_played_per_day` | Numeric | Daily song count | Low = disengaged user |\n| 4 | `skip_rate` | Numeric 0–1 | Fraction of songs skipped | High = poor recommendations |\n| 5 | `ads_listened_per_week` | Numeric | Weekly ad exposure | High = ad-fatigued user |\n| 6 | `offline_listening` | Numeric | Offline hours per day | Low = less Premium value |\n| 7 | `ad_stress` | Derived | ads × skip_rate | Combined frustration score |\n| 8 | `skip_intensity` | Derived | skip_rate × songs/day | Engagement quality score |\n| 9 | `gender_Male` | Binary | 1 if Male | One-hot encoded |\n| 10 | `gender_Other` | Binary | 1 if Other | One-hot encoded |\n| 11 | `subscription_type_Free` | Binary | 1 if Free plan | Free users churn most |\n| 12 | `subscription_type_Premium` | Binary | 1 if Premium | Premium users churn least |\n| 13 | `subscription_type_Student` | Binary | 1 if Student | Mid-level churn risk |\n| 14 | `device_type_Mobile` | Binary | 1 if Mobile | One-hot encoded |\n| 15 | `device_type_Web` | Binary | 1 if Web browser | One-hot encoded |")
+        st.markdown("---")
+        st.markdown("#### 🎯 Risk Segments")
+        rc1, rc2, rc3 = st.columns(3)
+        with rc1: st.markdown('<div style="background:#1DB95418;border:1px solid #1DB95455;border-radius:12px;padding:1rem;text-align:center;"><div style="font-size:1.5rem;">🟢</div><div style="color:#1DB954;font-weight:700;font-size:1.1rem;margin:0.4rem 0;">Low Risk (0–33%)</div><div style="color:#aaa;font-size:0.85rem;">User likely to stay. Good time to upsell Premium.</div></div>', unsafe_allow_html=True)
+        with rc2: st.markdown('<div style="background:#ff950018;border:1px solid #ff950055;border-radius:12px;padding:1rem;text-align:center;"><div style="font-size:1.5rem;">🟠</div><div style="color:#ff9500;font-weight:700;font-size:1.1rem;margin:0.4rem 0;">Medium Risk (33–67%)</div><div style="color:#aaa;font-size:0.85rem;">Needs engagement. Send personalised content and offers.</div></div>', unsafe_allow_html=True)
+        with rc3: st.markdown('<div style="background:#ff333318;border:1px solid #ff333355;border-radius:12px;padding:1rem;text-align:center;"><div style="font-size:1.5rem;">🔴</div><div style="color:#ff4444;font-weight:700;font-size:1.1rem;margin:0.4rem 0;">High Risk (67–100%)</div><div style="color:#aaa;font-size:0.85rem;">Immediate action needed. Trigger retention playbook now.</div></div>', unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("#### 📖 Understanding SHAP Values")
+        st.markdown("SHAP explains **why** the model made a prediction, not just what it predicted.")
+        st.markdown("- 🔴 **Red bars** — Feature is **increasing** churn risk (pushing probability higher)")
+        st.markdown("- 🟢 **Green bars** — Feature is **decreasing** churn risk (pushing probability lower)")
+        st.markdown("- The **longer the bar**, the more impact that feature has on this specific prediction")
+        st.markdown("**Example:** A user with skip_rate = 0.85 will show a long red SHAP bar for skip_rate — meaning their high skip rate is the biggest reason they are predicted to churn.")
 
     with tab3:
-        st.markdown("""
-### FAQ
+        st.markdown("### ❓ Frequently Asked Questions")
+        st.markdown("---")
+        faqs = [
+            ("What is churn prediction?", "Churn prediction uses machine learning to identify which customers are likely to cancel their subscription. This app analyses 15 behavioural and demographic features of each Spotify user and outputs a churn probability score."),
+            ("What does the churn probability percentage mean?", "It represents the likelihood (0 to 100%) that a user will cancel. For example, 85% means the model is highly confident this user is about to churn and needs immediate intervention."),
+            ("What are XAI and SHAP?", "XAI stands for Explainable AI. Instead of just giving a prediction, it explains WHY. SHAP assigns each feature a score showing how much it contributed to pushing the prediction up or down. Red = increases risk, Green = decreases risk."),
+            ("What are Actionable Playbooks?", "Playbooks are structured intervention plans — sequences of actions (emails, in-app messages, SMS, push notifications) designed to retain a user. Each playbook is matched to the risk level with estimated conversion lift and retention improvement."),
+            ("Why are some features derived like ad_stress and skip_intensity?", "These are engineered features created by combining raw features. ad_stress = ads_per_week x skip_rate captures ad frustration. skip_intensity = skip_rate x songs_per_day measures how actively disengaged a user is."),
+            ("What does the Analytics tab show?", "Platform-wide insights from all 8,000 users: total users, churn rate, average skip rate, churn by subscription type, churn by device, age distribution of churned vs retained users, and top countries by user count."),
+            ("Does this need a backend server?", "No. The entire app runs on Streamlit Cloud. The ML model, SHAP explainer, playbook engine, and chat all run directly in the app — no FastAPI, no localhost, no external APIs needed."),
+            ("Why does the model show very high churn probability for some users?", "The model learned that certain combinations strongly predict churn — e.g. a Free plan user with high skip rate and high ad exposure. When multiple risk factors combine, the model correctly identifies high churn risk."),
+            ("How accurate is the model?", "The model uses HistGradientBoostingClassifier trained on 8,000 Spotify user records with StandardScaler normalisation. Exact accuracy metrics can be found in the training script train_final_model.py."),
+            ("Can I add my own customer data?", "Yes — replace spotify dataset.csv with your own CSV using the same column names. The app will automatically load all users. If column names differ, update FEATURE_COLUMNS in frontend_dashboard.py."),
+            ("What is the difference between Free, Premium, and Student plans?", "Free users have ads and limited skips — they churn most frequently. Premium ($9.99/month) has ad-free listening, offline downloads, and HD audio — lowest churn. Student ($4.99/month) has same Premium benefits at half price."),
+            ("What do the playbook action steps mean?", "Each playbook has numbered steps delivered through different channels: Email (direct email to user), In-App (banner shown inside the Spotify app), Push (mobile push notification), SMS (text message). Steps are ordered by priority and timing."),
+        ]
+        for q, a in faqs:
+            with st.expander("❓ " + q):
+                st.markdown("**Answer:** " + a)
 
-**Q: What does churn probability mean?**
-The likelihood (0–100%) that a user will cancel their Spotify subscription.
-
-**Q: What are the risk segments?**
-- 🟢 Low Risk (0–33%) — Likely to stay
-- 🟠 Medium Risk (33–67%) — Needs engagement
-- 🔴 High Risk (67%+) — Immediate action required
-
-**Q: What are ad_stress and skip_intensity?**
-These are derived features computed automatically:
-- `ad_stress = ads_listened_per_week × skip_rate`
-- `skip_intensity = skip_rate × songs_played_per_day`
-
-**Q: Does this need a backend server?**
-No. Everything runs inside Streamlit Cloud — model, SHAP, playbooks, and chat are all self-contained.
-
-**Q: Why does the scaler show a warning?**
-The scaler was saved with a newer sklearn version. This is a version mismatch warning only — it does not affect predictions.
-        """)
-
-# ============================================================================
-# MAIN
-# ============================================================================
 def main():
     if "page"            not in st.session_state: st.session_state.page = "home"
     if "last_prediction" not in st.session_state: st.session_state.last_prediction = {}
@@ -1315,6 +1323,9 @@ v2.0 — Standalone · No backend<br><br>
 💬 Chat assistant
 </div>
         """, unsafe_allow_html=True)
+
+
+
 
     if st.session_state.page == "home":
         page_home(model, scaler, explainer, df)
